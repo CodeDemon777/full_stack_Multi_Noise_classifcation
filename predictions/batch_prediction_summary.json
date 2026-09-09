@@ -1,0 +1,227 @@
+{
+  "total_images_processed": 10,
+  "average_pixel_accuracy": 98.31146240234375,
+  "average_mIoU": 86.83708913378405,
+  "individual_results": [
+    {
+      "image": "test_images\\img_test_00001.npy",
+      "classes_detected": [
+        "Clean",
+        "Salt & Pepper"
+      ],
+      "class_pixel_percentages": {
+        "Clean": 88.16,
+        "Salt & Pepper": 11.84
+      },
+      "mean_confidence": 0.9903724789619446,
+      "pixel_accuracy": 99.4537353515625,
+      "mIoU": 97.39989221314956,
+      "outputs": {
+        "pred_mask_npy": "predictions\\img_test_00001_pred_mask.npy",
+        "noise_map_png": "predictions\\img_test_00001_noise_map.png"
+      }
+    },
+    {
+      "image": "test_images\\img_test_00002.npy",
+      "classes_detected": [
+        "Clean",
+        "Salt & Pepper",
+        "Speckle",
+        "Quantization",
+        "Periodic Digital"
+      ],
+      "class_pixel_percentages": {
+        "Clean": 47.14,
+        "Salt & Pepper": 11.64,
+        "Speckle": 17.81,
+        "Quantization": 23.31,
+        "Periodic Digital": 0.1
+      },
+      "mean_confidence": 0.9801054000854492,
+      "pixel_accuracy": 97.528076171875,
+      "mIoU": 76.16630829160631,
+      "outputs": {
+        "pred_mask_npy": "predictions\\img_test_00002_pred_mask.npy",
+        "noise_map_png": "predictions\\img_test_00002_noise_map.png"
+      }
+    },
+    {
+      "image": "test_images\\img_test_00003.npy",
+      "classes_detected": [
+        "Gaussian",
+        "Speckle",
+        "Poisson",
+        "RVIN",
+        "Periodic Digital"
+      ],
+      "class_pixel_percentages": {
+        "Gaussian": 2.4,
+        "Speckle": 45.87,
+        "Poisson": 18.92,
+        "RVIN": 15.73,
+        "Periodic Digital": 17.09
+      },
+      "mean_confidence": 0.9603634476661682,
+      "pixel_accuracy": 96.20513916015625,
+      "mIoU": 86.87331002778251,
+      "outputs": {
+        "pred_mask_npy": "predictions\\img_test_00003_pred_mask.npy",
+        "noise_map_png": "predictions\\img_test_00003_noise_map.png"
+      }
+    },
+    {
+      "image": "test_images\\img_test_00004.npy",
+      "classes_detected": [
+        "Clean",
+        "Quantization"
+      ],
+      "class_pixel_percentages": {
+        "Clean": 85.42,
+        "Quantization": 14.58
+      },
+      "mean_confidence": 0.9906330108642578,
+      "pixel_accuracy": 99.5452880859375,
+      "mIoU": 98.2033806722454,
+      "outputs": {
+        "pred_mask_npy": "predictions\\img_test_00004_pred_mask.npy",
+        "noise_map_png": "predictions\\img_test_00004_noise_map.png"
+      }
+    },
+    {
+      "image": "test_images\\img_test_00005.npy",
+      "classes_detected": [
+        "Clean",
+        "Salt & Pepper",
+        "RVIN",
+        "Periodic Digital"
+      ],
+      "class_pixel_percentages": {
+        "Clean": 87.88,
+        "Salt & Pepper": 3.5,
+        "RVIN": 3.44,
+        "Periodic Digital": 5.19
+      },
+      "mean_confidence": 0.9895443916320801,
+      "pixel_accuracy": 98.92730712890625,
+      "mIoU": 92.56616374595193,
+      "outputs": {
+        "pred_mask_npy": "predictions\\img_test_00005_pred_mask.npy",
+        "noise_map_png": "predictions\\img_test_00005_noise_map.png"
+      }
+    },
+    {
+      "image": "test_images\\img_test_00006.npy",
+      "classes_detected": [
+        "Clean",
+        "Gaussian",
+        "Salt & Pepper",
+        "Poisson",
+        "Quantization",
+        "RVIN",
+        "Periodic Digital"
+      ],
+      "class_pixel_percentages": {
+        "Clean": 0.01,
+        "Gaussian": 31.18,
+        "Salt & Pepper": 17.97,
+        "Poisson": 15.33,
+        "Quantization": 18.87,
+        "RVIN": 6.17,
+        "Periodic Digital": 10.47
+      },
+      "mean_confidence": 0.988471269607544,
+      "pixel_accuracy": 98.58551025390625,
+      "mIoU": 82.85908155570002,
+      "outputs": {
+        "pred_mask_npy": "predictions\\img_test_00006_pred_mask.npy",
+        "noise_map_png": "predictions\\img_test_00006_noise_map.png"
+      }
+    },
+    {
+      "image": "test_images\\img_test_00007.npy",
+      "classes_detected": [
+        "Speckle"
+      ],
+      "class_pixel_percentages": {
+        "Speckle": 100.0
+      },
+      "mean_confidence": 0.9892857074737549,
+      "pixel_accuracy": 100.0,
+      "mIoU": 100.0,
+      "outputs": {
+        "pred_mask_npy": "predictions\\img_test_00007_pred_mask.npy",
+        "noise_map_png": "predictions\\img_test_00007_noise_map.png"
+      }
+    },
+    {
+      "image": "test_images\\img_test_00008.npy",
+      "classes_detected": [
+        "Clean",
+        "Gaussian",
+        "Speckle",
+        "Poisson",
+        "Quantization"
+      ],
+      "class_pixel_percentages": {
+        "Clean": 79.57,
+        "Gaussian": 7.68,
+        "Speckle": 3.04,
+        "Poisson": 1.12,
+        "Quantization": 8.6
+      },
+      "mean_confidence": 0.9570114612579346,
+      "pixel_accuracy": 95.18280029296875,
+      "mIoU": 51.42135172745024,
+      "outputs": {
+        "pred_mask_npy": "predictions\\img_test_00008_pred_mask.npy",
+        "noise_map_png": "predictions\\img_test_00008_noise_map.png"
+      }
+    },
+    {
+      "image": "test_images\\img_test_00009.npy",
+      "classes_detected": [
+        "Clean",
+        "Gaussian",
+        "Salt & Pepper",
+        "Speckle",
+        "Poisson",
+        "Quantization",
+        "RVIN",
+        "Periodic Digital"
+      ],
+      "class_pixel_percentages": {
+        "Clean": 0.01,
+        "Gaussian": 5.29,
+        "Salt & Pepper": 7.05,
+        "Speckle": 14.61,
+        "Poisson": 10.68,
+        "Quantization": 31.32,
+        "RVIN": 26.68,
+        "Periodic Digital": 4.36
+      },
+      "mean_confidence": 0.9841130375862122,
+      "pixel_accuracy": 97.686767578125,
+      "mIoU": 82.88140310395441,
+      "outputs": {
+        "pred_mask_npy": "predictions\\img_test_00009_pred_mask.npy",
+        "noise_map_png": "predictions\\img_test_00009_noise_map.png"
+      }
+    },
+    {
+      "image": "test_images\\img_test_00010.npy",
+      "classes_detected": [
+        "RVIN"
+      ],
+      "class_pixel_percentages": {
+        "RVIN": 100.0
+      },
+      "mean_confidence": 0.9964290857315063,
+      "pixel_accuracy": 100.0,
+      "mIoU": 100.0,
+      "outputs": {
+        "pred_mask_npy": "predictions\\img_test_00010_pred_mask.npy",
+        "noise_map_png": "predictions\\img_test_00010_noise_map.png"
+      }
+    }
+  ]
+}

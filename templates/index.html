@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LungCT UNet++ Multi-Noise Pixel Classifier & Bounding Box Detector</title>
+    <!-- Modern Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #070b14;
+            --bg-card: rgba(15, 23, 42, 0.78);
+            --bg-card-border: rgba(56, 189, 248, 0.18);
+            --primary: #38bdf8;
+            --primary-glow: rgba(56, 189, 248, 0.35);
+            --accent: #818cf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --card-radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at 15% 15%, #0f172a 0%, #070b14 60%, #030712 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 24px;
+            overflow-x: hidden;
+        }
+
+        .ambient-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.09) 0%, transparent 70%);
+            top: -100px;
+            right: -100px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1480px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 24px;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #0284c7, #818cf8);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+
+        .logo-icon svg {
+            width: 28px;
+            height: 28px;
+            fill: white;
+        }
+
+        .title-group h1 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #ffffff 40%, #93c5fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .title-group p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .header-badges {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .badge {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(10px);
+        }
+
+        .badge.highlight {
+            border-color: rgba(56, 189, 248, 0.4);
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.08);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        /* 8-Class Legend Bar */
+        .legend-bar {
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: 12px;
+            padding: 12px 18px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(12px);
+        }
+
+        .legend-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--primary);
+        }
+
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .color-chip {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Main Workspace Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 24px;
+        }
+
+        /* Sidebar Control Panel */
+        .control-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--card-radius);
+            padding: 22px;
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        /* Upload Zone */
+        .dropzone {
+            border: 2px dashed rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            padding: 20px 16px;
+            text-align: center;
+            background: rgba(56, 189, 248, 0.02);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--primary);
+            background: rgba(56, 189, 248, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .dropzone svg {
+            width: 32px;
+            height: 32px;
+            stroke: var(--primary);
+            margin-bottom: 6px;
+        }
+
+        .dropzone p {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .dropzone span {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Sample Gallery */
+        .sample-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .sample-grid::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sample-grid::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .sample-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 9px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .sample-card:hover {
+            border-color: var(--primary);
+            background: rgba(56, 189, 248, 0.1);
+            transform: scale(1.02);
+        }
+
+        .sample-card.active {
+            border-color: var(--primary);
+            background: rgba(56, 189, 248, 0.15);
+            box-shadow: 0 0 12px var(--primary-glow);
+        }
+
+        .sample-name {
+            font-size: 11px;
+            font-weight: 500;
+            color: #cbd5e1;
+        }
+
+        .sample-tag {
+            font-size: 9px;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.12);
+            padding: 2px 5px;
+            border-radius: 4px;
+            margin-top: 4px;
+            display: inline-block;
+        }
+
+        /* Run Inference Button */
+        .btn-predict {
+            background: linear-gradient(135deg, #0284c7, #6366f1);
+            color: white;
+            border: none;
+            padding: 13px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(2, 132, 199, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+
+        .btn-predict:hover {
+            box-shadow: 0 6px 24px rgba(2, 132, 199, 0.6);
+            transform: translateY(-1px);
+        }
+
+        /* Display Panel Area */
+        .display-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--card-radius);
+            padding: 24px;
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+        }
+
+        /* View Modes & Tabs */
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .tabs {
+            display: flex;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            gap: 4px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: #030712;
+            font-weight: 600;
+            box-shadow: 0 2px 8px var(--primary-glow);
+        }
+
+        /* Viewer Layouts */
+        .viewer-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 18px;
+        }
+
+        .viewer-grid.tri-view {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .viewer-card {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .viewer-header {
+            padding: 10px 14px;
+            background: rgba(30, 41, 59, 0.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .viewer-img-container {
+            aspect-ratio: 1 / 1;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .viewer-img-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            image-rendering: pixelated;
+        }
+
+        .placeholder-text {
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 12px;
+        }
+
+        /* Metrics & Distribution Section */
+        .metrics-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .metrics-card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .stat-box {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .stat-val {
+            font-size: 18px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--primary);
+        }
+
+        .stat-lbl {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Bounding Box Table */
+        .bbox-table-container {
+            max-height: 160px;
+            overflow-y: auto;
+            margin-top: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+        }
+
+        .bbox-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            text-align: left;
+        }
+
+        .bbox-table th {
+            background: rgba(30, 41, 59, 0.9);
+            padding: 6px 10px;
+            color: var(--text-muted);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        .bbox-table td {
+            padding: 6px 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .bbox-table tr:hover {
+            background: rgba(56, 189, 248, 0.08);
+        }
+
+        /* Progress bars for classes */
+        .class-bar-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .class-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 11px;
+        }
+
+        .class-bar-name {
+            width: 110px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .class-bar-track {
+            flex: 1;
+            height: 7px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .class-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        .class-bar-pct {
+            width: 45px;
+            text-align: right;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        /* Action Buttons */
+        .actions-row {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .btn-action {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            padding: 9px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            border-color: var(--primary);
+            background: rgba(56, 189, 248, 0.1);
+            color: var(--primary);
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-glow"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                    </svg>
+                </div>
+                <div class="title-group">
+                    <h1>LungCT UNet++ Multi-Noise Pixel Classifier</h1>
+                    <p>Pixel-Level Segmentation & Bounding Box Localization on LoDoPaB-CT Images</p>
+                </div>
+            </div>
+            <div class="header-badges">
+                <div class="badge highlight">
+                    <div class="status-dot"></div>
+                    UNet++ Checkpoint Loaded (96.65% Val mIoU)
+                </div>
+                <div class="badge" id="portBadge">
+                    Port: 5000
+                </div>
+            </div>
+        </header>
+
+        <!-- 8-Class Legend -->
+        <div class="legend-bar">
+            <span class="legend-title">Noise Classes (0-7):</span>
+            <div class="legend-items" id="legendContainer"></div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="main-grid">
+            <!-- Left Controls -->
+            <div class="control-panel">
+                <div>
+                    <div class="section-title">
+                        <span>🧪 Select Preloaded Test Slice</span>
+                    </div>
+                    <div class="sample-grid" id="sampleGallery"></div>
+                </div>
+
+                <div>
+                    <div class="section-title">
+                        <span>📁 Or Upload Custom Slice</span>
+                    </div>
+                    <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                        </svg>
+                        <p>Drag & drop <span>.npy, .png, .jpg</span> here</p>
+                        <input type="file" id="fileInput" accept=".npy,.png,.jpg,.jpeg" style="display:none;" onchange="handleFileUpload(event)">
+                    </div>
+                    <div id="selectedFileInfo" style="font-size: 11px; color: #38bdf8; margin-top: 6px; display: none;"></div>
+                </div>
+
+                <button class="btn-predict" id="predictBtn" onclick="executePrediction()">
+                    <span id="btnText">Run UNet++ Inference</span>
+                    <div id="btnSpinner" class="spinner hidden"></div>
+                </button>
+            </div>
+
+            <!-- Right Visual Display Panel -->
+            <div class="display-panel">
+                <div class="panel-header">
+                    <h2 style="font-size: 17px; font-weight: 600;" id="resultTitle">Segmentation & Boundary Box Results</h2>
+                    <div class="tabs">
+                        <button class="tab-btn active" onclick="switchTab('quad')">Pixel-Level Quad View</button>
+                        <button class="tab-btn" onclick="switchTab('bbox')">Bounding Box & Hybrid View</button>
+                        <button class="tab-btn" id="evalTabBtn" onclick="switchTab('eval')">Evaluation View</button>
+                    </div>
+                </div>
+
+                <!-- 1. Pixel-Level Quad Multi-Viewer Grid -->
+                <div class="viewer-grid" id="quadView">
+                    <div class="viewer-card">
+                        <div class="viewer-header">
+                            <span>(a) Input CT Slice</span>
+                            <span style="font-size: 11px; color: var(--text-muted);">256 × 256</span>
+                        </div>
+                        <div class="viewer-img-container">
+                            <img id="imgCT" src="" alt="Input CT" class="hidden">
+                            <span class="placeholder-text" id="phCT">Select or upload a slice</span>
+                        </div>
+                    </div>
+
+                    <div class="viewer-card">
+                        <div class="viewer-header">
+                            <span>(b) Pixel-Level Noise Map</span>
+                            <span style="font-size: 11px; color: #38bdf8;">8-Class Pixel Map</span>
+                        </div>
+                        <div class="viewer-img-container">
+                            <img id="imgNoiseMap" src="" alt="Noise Map" class="hidden">
+                            <span class="placeholder-text" id="phNoiseMap">Awaiting inference...</span>
+                        </div>
+                    </div>
+
+                    <div class="viewer-card">
+                        <div class="viewer-header">
+                            <span>(c) CT + Pixel Noise Overlay</span>
+                            <span style="font-size: 11px; color: #818cf8;">Alpha Composite</span>
+                        </div>
+                        <div class="viewer-img-container">
+                            <img id="imgOverlay" src="" alt="Overlay" class="hidden">
+                            <span class="placeholder-text" id="phOverlay">Awaiting inference...</span>
+                        </div>
+                    </div>
+
+                    <div class="viewer-card">
+                        <div class="viewer-header">
+                            <span>(d) Confidence Heatmap</span>
+                            <span style="font-size: 11px; color: #f59e0b;">Softmax Peak</span>
+                        </div>
+                        <div class="viewer-img-container">
+                            <img id="imgConfidence" src="" alt="Confidence Heatmap" class="hidden">
+                            <span class="placeholder-text" id="phConfidence">Awaiting inference...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Bounding Box & Hybrid View Grid -->
+                <div class="viewer-grid hidden" id="bboxView">
+                    <div class="viewer-card">
+                        <div class="viewer-header">
+                            <span>📦 Bounding Box Detection Overlay</span>
+                            <span style="font-size: 11px; color: #38bdf8;">Localized Regions</span>
+                        </div>
+                        <div class="viewer-img-container">
+                            <img id="imgBbox" src="" alt="Bounding Box Overlay" class="hidden">
+                            <span class="placeholder-text" id="phBbox">Awaiting inference...</span>
+                        </div>
+                    </div>
+
+                    <div class="viewer-card">
+                        <div class="viewer-header">
+                            <span>✨ Hybrid: Pixel Mask + Bounding Box</span>
+                            <span style="font-size: 11px; color: #818cf8;">Segmentation + Detection</span>
+                        </div>
+                        <div class="viewer-img-container">
+                            <img id="imgHybrid" src="" alt="Hybrid Overlay" class="hidden">
+                            <span class="placeholder-text" id="phHybrid">Awaiting inference...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Ground Truth Evaluation View -->
+                <div class="viewer-grid hidden" id="evalView">
+                    <div class="viewer-card">
+                        <div class="viewer-header">
+                            <span>Ground Truth Mask</span>
+                            <span style="font-size: 11px; color: #22c55e;">Annotated Target</span>
+                        </div>
+                        <div class="viewer-img-container">
+                            <img id="imgGT" src="" alt="Ground Truth" class="hidden">
+                            <span class="placeholder-text" id="phGT">Ground truth for test slices</span>
+                        </div>
+                    </div>
+
+                    <div class="viewer-card">
+                        <div class="viewer-header">
+                            <span>Pixel Error Mismatch Map</span>
+                            <span style="font-size: 11px; color: #ef4444;">Red = Mismatch</span>
+                        </div>
+                        <div class="viewer-img-container">
+                            <img id="imgError" src="" alt="Error Map" class="hidden">
+                            <span class="placeholder-text" id="phError">Awaiting evaluation...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metrics & Class Breakdown Section -->
+                <div class="metrics-container" id="metricsSection" style="display: none;">
+                    <div class="metrics-card">
+                        <h3 class="section-title">
+                            <span>⚡ Performance & Detected Noise Regions</span>
+                        </h3>
+                        <div class="stat-grid">
+                            <div class="stat-box">
+                                <div class="stat-val" id="statLatency">0 ms</div>
+                                <div class="stat-lbl">Inference Speed</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-val" id="statConfidence">0%</div>
+                                <div class="stat-lbl">Mean Confidence</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-val" id="statAccuracy">N/A</div>
+                                <div class="stat-lbl">Pixel Accuracy</div>
+                            </div>
+                        </div>
+
+                        <!-- Detected Bounding Box Table -->
+                        <div class="bbox-table-container">
+                            <table class="bbox-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Noise Type</th>
+                                        <th>Box [X, Y, W, H]</th>
+                                        <th>Area (px)</th>
+                                        <th>Conf</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bboxTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="metrics-card">
+                        <h3 class="section-title">
+                            <span>📊 Pixel-Level Spatial Noise Distribution</span>
+                        </h3>
+                        <div class="class-bar-list" id="classBars"></div>
+                    </div>
+                </div>
+
+                <!-- Action Download Row -->
+                <div class="actions-row" id="actionsRow" style="display: none;">
+                    <a id="btnDownloadMask" class="btn-action" href="#" download>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                        Download Predicted Mask (.npy)
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedSample = null;
+        let selectedFile = null;
+        let classColorMap = {};
+
+        const CLASS_DEFINITIONS = [
+            { id: 0, name: "Clean", color: [30, 30, 30] },
+            { id: 1, name: "Gaussian", color: [230, 25, 75] },
+            { id: 2, name: "Salt & Pepper", color: [60, 180, 75] },
+            { id: 3, name: "Speckle", color: [255, 225, 25] },
+            { id: 4, name: "Poisson", color: [0, 130, 200] },
+            { id: 5, name: "Quantization", color: [245, 130, 48] },
+            { id: 6, name: "RVIN", color: [145, 30, 180] },
+            { id: 7, name: "Periodic Digital", color: [70, 240, 240] }
+        ];
+
+        // Render Legend
+        function renderLegend() {
+            const container = document.getElementById('legendContainer');
+            container.innerHTML = '';
+            CLASS_DEFINITIONS.forEach(cls => {
+                const rgb = `rgb(${cls.color[0]}, ${cls.color[1]}, ${cls.color[2]})`;
+                classColorMap[cls.id] = rgb;
+                const div = document.createElement('div');
+                div.className = 'legend-item';
+                div.innerHTML = `
+                    <div class="color-chip" style="background: ${rgb};"></div>
+                    <span>${cls.id}: ${cls.name}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Fetch preloaded test samples
+        async function fetchSamples() {
+            try {
+                const res = await fetch('/api/samples');
+                const data = await res.json();
+                const gallery = document.getElementById('sampleGallery');
+                gallery.innerHTML = '';
+
+                data.samples.forEach((sample, idx) => {
+                    const card = document.createElement('div');
+                    card.className = `sample-card ${idx === 0 ? 'active' : ''}`;
+                    card.innerHTML = `
+                        <div class="sample-name">${sample.filename}</div>
+                        <div class="sample-tag">${sample.has_gt ? 'Has GT Mask' : 'Test Slice'}</div>
+                    `;
+                    card.onclick = () => selectSampleCard(card, sample.filename);
+                    gallery.appendChild(card);
+
+                    if (idx === 0) {
+                        selectedSample = sample.filename;
+                    }
+                });
+
+                if (selectedSample) {
+                    executePrediction();
+                }
+            } catch (err) {
+                console.error("Failed to load samples:", err);
+            }
+        }
+
+        function selectSampleCard(cardElement, filename) {
+            document.querySelectorAll('.sample-card').forEach(c => c.classList.remove('active'));
+            cardElement.classList.add('active');
+            selectedSample = filename;
+            selectedFile = null;
+            document.getElementById('selectedFileInfo').style.display = 'none';
+            executePrediction();
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                selectedSample = null;
+                document.querySelectorAll('.sample-card').forEach(c => c.classList.remove('active'));
+                const fileInfo = document.getElementById('selectedFileInfo');
+                fileInfo.innerText = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+                fileInfo.style.display = 'block';
+                executePrediction();
+            }
+        }
+
+        // Tab Switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('quadView').classList.add('hidden');
+            document.getElementById('bboxView').classList.add('hidden');
+            document.getElementById('evalView').classList.add('hidden');
+
+            if (tabName === 'quad') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('quadView').classList.remove('hidden');
+            } else if (tabName === 'bbox') {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('bboxView').classList.remove('hidden');
+            } else {
+                document.querySelectorAll('.tab-btn')[2].classList.add('active');
+                document.getElementById('evalView').classList.remove('hidden');
+            }
+        }
+
+        // Execute Prediction
+        async function executePrediction() {
+            const btn = document.getElementById('predictBtn');
+            const btnText = document.getElementById('btnText');
+            const spinner = document.getElementById('btnSpinner');
+
+            btn.disabled = true;
+            btnText.innerText = 'Segmenting...';
+            spinner.classList.remove('hidden');
+
+            const formData = new FormData();
+            if (selectedFile) {
+                formData.append('file', selectedFile);
+            } else if (selectedSample) {
+                formData.append('sample_filename', selectedSample);
+            } else {
+                alert("Please select a sample or upload a CT image.");
+                btn.disabled = false;
+                btnText.innerText = 'Run UNet++ Inference';
+                spinner.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.error) {
+                    alert("Error: " + data.error);
+                    return;
+                }
+
+                // 1. Update Pixel-level Images
+                setImage('imgCT', 'phCT', data.ct_image_b64);
+                setImage('imgNoiseMap', 'phNoiseMap', data.noise_map_b64);
+                setImage('imgOverlay', 'phOverlay', data.overlay_b64);
+                setImage('imgConfidence', 'phConfidence', data.confidence_b64);
+
+                // 2. Update Bounding Box & Hybrid Images
+                setImage('imgBbox', 'phBbox', data.bbox_b64);
+                setImage('imgHybrid', 'phHybrid', data.hybrid_b64);
+
+                // 3. Update GT & Error Map if available
+                if (data.gt_stats) {
+                    setImage('imgGT', 'phGT', data.gt_stats.gt_mask_b64);
+                    setImage('imgError', 'phError', data.gt_stats.error_map_b64);
+                    document.getElementById('statAccuracy').innerText = `${data.gt_stats.pixel_accuracy}%`;
+                    document.getElementById('evalTabBtn').classList.remove('hidden');
+                } else {
+                    document.getElementById('statAccuracy').innerText = `N/A`;
+                    document.getElementById('evalTabBtn').classList.add('hidden');
+                }
+
+                // 4. Update Stats
+                document.getElementById('statLatency').innerText = `${data.inference_ms} ms`;
+                document.getElementById('statConfidence').innerText = `${data.mean_confidence}%`;
+
+                // 5. Update Bounding Box Table
+                const tbody = document.getElementById('bboxTableBody');
+                tbody.innerHTML = '';
+                if (data.bounding_boxes && data.bounding_boxes.length > 0) {
+                    data.bounding_boxes.forEach(b => {
+                        const rgb = `rgb(${b.color[0]}, ${b.color[1]}, ${b.color[2]})`;
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${b.id}</td>
+                            <td><span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:${rgb}; margin-right:4px;"></span>${b.class_name}</td>
+                            <td style="font-family:'JetBrains Mono',monospace;">[${b.box.join(', ')}]</td>
+                            <td style="font-family:'JetBrains Mono',monospace;">${b.area_pixels} (${b.area_percentage}%)</td>
+                            <td style="color:#22c55e; font-weight:600;">${b.confidence}%</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No distinct noise bounding boxes (Clean CT)</td></tr>';
+                }
+
+                // 6. Update Pixel Class Distribution Bars
+                const barContainer = document.getElementById('classBars');
+                barContainer.innerHTML = '';
+                data.class_stats.forEach(st => {
+                    const rgb = `rgb(${st.color[0]}, ${st.color[1]}, ${st.color[2]})`;
+                    const row = document.createElement('div');
+                    row.className = 'class-bar-row';
+                    row.innerHTML = `
+                        <span class="class-bar-name">${st.name}</span>
+                        <div class="class-bar-track">
+                            <div class="class-bar-fill" style="width: ${st.percentage}%; background: ${rgb};"></div>
+                        </div>
+                        <span class="class-bar-pct">${st.percentage}%</span>
+                    `;
+                    barContainer.appendChild(row);
+                });
+
+                // Download Link & Display
+                document.getElementById('btnDownloadMask').href = data.download_mask_url;
+                document.getElementById('metricsSection').style.display = 'grid';
+                document.getElementById('actionsRow').style.display = 'flex';
+                document.getElementById('resultTitle').innerText = `Results: ${data.filename}`;
+
+            } catch (err) {
+                console.error("Prediction failed:", err);
+                alert("Prediction failed. Check console log.");
+            } finally {
+                btn.disabled = false;
+                btnText.innerText = 'Run UNet++ Inference';
+                spinner.classList.add('hidden');
+            }
+        }
+
+        function setImage(imgId, phId, b64) {
+            const img = document.getElementById(imgId);
+            const ph = document.getElementById(phId);
+            if (b64) {
+                img.src = b64;
+                img.classList.remove('hidden');
+                if (ph) ph.classList.add('hidden');
+            } else {
+                img.classList.add('hidden');
+                if (ph) ph.classList.remove('hidden');
+            }
+        }
+
+        // Setup Drag & Drop
+        const dropzone = document.getElementById('dropzone');
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+        dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('dragover'); });
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                selectedFile = e.dataTransfer.files[0];
+                selectedSample = null;
+                document.querySelectorAll('.sample-card').forEach(c => c.classList.remove('active'));
+                const fileInfo = document.getElementById('selectedFileInfo');
+                fileInfo.innerText = `Selected: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB)`;
+                fileInfo.style.display = 'block';
+                executePrediction();
+            }
+        });
+
+        // Initialize
+        renderLegend();
+        fetchSamples();
+    </script>
+</body>
+</html>

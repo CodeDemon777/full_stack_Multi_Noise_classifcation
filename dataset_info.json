@@ -1,0 +1,43 @@
+{
+    "dataset_name": "LungCT_MultiNoise_UNetPlusPlus",
+    "image_size": "256x256",
+    "channels": 1,
+    "dtype_image": "float32 (normalized [0, 1])",
+    "dtype_mask": "uint8 (class IDs 0-7)",
+    "num_classes": 8,
+    "classes": {
+        "0": "Clean",
+        "1": "Gaussian",
+        "2": "Salt & Pepper",
+        "3": "Speckle",
+        "4": "Poisson",
+        "5": "Quantization",
+        "6": "RVIN",
+        "7": "Periodic Digital"
+    },
+    "split_ratio": {
+        "train": 0.8,
+        "validation": 0.1,
+        "test": 0.1
+    },
+    "sample_counts": {
+        "train": 800,
+        "val": 100,
+        "test": 100
+    },
+    "dataset_types_distribution": {
+        "single": 335,
+        "multi": 333,
+        "complex": 332
+    },
+    "pixel_class_distribution": {
+        "0 (Clean)": 14656803,
+        "1 (Gaussian)": 7441985,
+        "2 (Salt & Pepper)": 7665675,
+        "3 (Speckle)": 7376379,
+        "4 (Poisson)": 6783081,
+        "5 (Quantization)": 7594492,
+        "6 (RVIN)": 6410817,
+        "7 (Periodic Digital)": 7606768
+    }
+}
