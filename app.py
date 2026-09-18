@@ -1,6 +1,7 @@
 """
-app.py - Interactive Web Application for Multi-Noise Pixel-Level & Bounding Box Lung CT Segmentation (U-Net++)
-Optimized for low-memory Render deployment (512MB RAM ceiling).
+app.py - Production Full-Stack REST API & Medical Diagnostic Web Application
+Backend for Multi-Noise Pixel-Level & Bounding Box Lung CT Segmentation (U-Net++)
+Includes API v1 versioning, OpenAPI 3.0 specs, batch processing, telemetry metrics, and CORS support.
 """
 
 import os
@@ -10,6 +11,7 @@ import time
 import base64
 import json
 import glob
+import platform
 from typing import Tuple, Dict, List, Optional
 import numpy as np
 import cv2
@@ -20,11 +22,11 @@ from matplotlib.colors import ListedColormap
 
 import torch
 import torch.nn as nn
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template, send_file, make_response
 
 from predict import UNetPlusPlus, load_model, CLASS_NAMES, CLASS_COLORS, mask_to_color_image
 
-# Memory optimizations for cloud servers (Render free tier)
+# Memory and performance optimizations
 torch.set_num_threads(1)
 torch.set_grad_enabled(False)
 
@@ -39,9 +41,19 @@ PREDICTIONS_DIR = os.path.join(BASE_DIR, "predictions")
 os.makedirs(PREDICTIONS_DIR, exist_ok=True)
 
 # Determine device and load model safely
-DEVICE = torch.device("cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = None
 model_error = None
+
+# Telemetry & In-Memory Metrics State
+SERVER_START_TIME = time.time()
+REQUEST_METRICS = {
+    "total_requests": 0,
+    "total_inferences": 0,
+    "total_batch_jobs": 0,
+    "latencies_ms": [],
+    "recent_history": []
+}
 
 CLASS_RECOMMENDATIONS = {
     0: {
@@ -94,18 +106,26 @@ CLASS_RECOMMENDATIONS = {
     }
 }
 
+# CORS Hook for Full Stack Frontend Integrations
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization,X-Requested-With'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
+    response.headers['X-Engine'] = 'LungCT-UNetPlusPlus-v2.5'
+    return response
+
 def init_model():
     global model, model_error
     try:
         if not os.path.exists(MODEL_PATH):
             raise FileNotFoundError(f"Checkpoint not found at: {MODEL_PATH}")
         
-        # Check if file is a Git LFS pointer instead of actual weights (< 1000 bytes)
         file_size = os.path.getsize(MODEL_PATH)
         if file_size < 1000:
             raise ValueError(
                 f"Model file is a Git LFS pointer ({file_size} bytes). "
-                "Please run 'git LFS pull' in your build command."
+                "Please run 'git lfs pull' in your build command."
             )
             
         print(f"[INIT] Loading UNet++ checkpoint ({file_size / (1024*1024):.1f} MB)...")
@@ -231,21 +251,299 @@ def preprocess_image_bytes(file_bytes: bytes, filename: str, target_size: int = 
     tensor = torch.from_numpy(img_np).unsqueeze(0).unsqueeze(0).to(DEVICE)
     return img_np, tensor
 
+# Core inference worker logic
+def run_single_inference(file_bytes: bytes, filename: str, gt_mask_np: Optional[np.ndarray] = None) -> Dict:
+    global model, model_error
+    if model is None:
+        init_model()
+        if model is None:
+            raise RuntimeError(f"Model is not loaded: {model_error}")
+
+    start_time = time.time()
+    img_np, tensor_in = preprocess_image_bytes(file_bytes, filename)
+
+    with torch.no_grad():
+        logits = model(tensor_in)
+        probs = torch.softmax(logits, dim=1)
+        conf_map, pred_mask = torch.max(probs, dim=1)
+
+    inference_ms = round((time.time() - start_time) * 1000, 1)
+    pred_mask_np = pred_mask.squeeze().cpu().numpy().astype(np.uint8)
+    conf_map_np = conf_map.squeeze().cpu().numpy().astype(np.float32)
+
+    del logits, probs, conf_map, pred_mask, tensor_in
+    gc.collect()
+
+    base_id = os.path.splitext(filename)[0]
+    out_mask_path = os.path.join(PREDICTIONS_DIR, f"{base_id}_pred_mask.npy")
+    np.save(out_mask_path, pred_mask_np)
+
+    ct_uint8 = (img_np * 255.0).astype(np.uint8)
+    ct_b64 = numpy_to_base64_png(ct_uint8)
+
+    color_mask = mask_to_color_image(pred_mask_np)
+    noise_map_b64 = numpy_to_base64_png(color_mask)
+
+    gray_3ch = np.stack([ct_uint8]*3, axis=-1)
+    non_clean = (pred_mask_np > 0)
+    overlay = gray_3ch.copy()
+    overlay[non_clean] = (0.5 * gray_3ch[non_clean] + 0.5 * color_mask[non_clean]).astype(np.uint8)
+    overlay_b64 = numpy_to_base64_png(overlay)
+
+    confidence_b64 = generate_confidence_heatmap(conf_map_np)
+
+    bounding_boxes = extract_bounding_boxes(pred_mask_np, conf_map_np)
+    bbox_only_img = generate_bbox_overlay_image(ct_uint8, bounding_boxes, pred_mask_np, include_mask_blend=False)
+    bbox_b64 = numpy_to_base64_png(bbox_only_img)
+
+    hybrid_img = generate_bbox_overlay_image(ct_uint8, bounding_boxes, pred_mask_np, include_mask_blend=True)
+    hybrid_b64 = numpy_to_base64_png(hybrid_img)
+
+    unique_classes, counts = np.unique(pred_mask_np, return_counts=True)
+    total_px = pred_mask_np.size
+    class_stats = []
+    total_noise_px = 0
+    
+    SEVERITY_WEIGHTS = {0: 0.0, 1: 0.85, 2: 1.0, 3: 0.75, 4: 0.80, 5: 0.60, 6: 0.95, 7: 0.90}
+
+    for c, cnt in zip(unique_classes, counts):
+        cid = int(c)
+        pct = round(float(cnt) / total_px * 100, 2)
+        if cid > 0:
+            total_noise_px += int(cnt)
+        recom = CLASS_RECOMMENDATIONS.get(cid, {})
+        class_sev_score = 0.0 if cid == 0 else round(min(10.0, (pct * SEVERITY_WEIGHTS.get(cid, 0.8) * 0.45) + (1.5 if pct > 1.0 else 0.5)), 1)
+        
+        class_stats.append({
+            "class_id": cid,
+            "name": CLASS_NAMES[cid],
+            "color": CLASS_COLORS[cid],
+            "percentage": pct,
+            "pixels": int(cnt),
+            "severity": recom.get("severity", "Unknown"),
+            "severity_score": class_sev_score,
+            "description": recom.get("description", ""),
+            "recommended_filter": recom.get("recommended_filter", ""),
+            "protocol": recom.get("protocol", "")
+        })
+
+    total_noise_pct = round(float(total_noise_px) / total_px * 100, 2)
+    clean_pct = round(100.0 - total_noise_pct, 2)
+
+    asi_score = round(min(10.0, (total_noise_pct * 0.26) + (len(unique_classes) - 1) * 0.4), 2)
+    noise_ratio = total_noise_pct / 100.0
+    snr_drop_db = round(-10.0 * np.log10(1.0 + (noise_ratio * 3.5) + 1e-6), 2)
+    margin_integrity = round(max(0.0, 100.0 - (total_noise_pct * 1.35)), 1)
+
+    if asi_score < 1.5:
+        risk_level = "Low Diagnostic Risk (Optimal Quality)"
+    elif asi_score < 4.0:
+        risk_level = "Moderate Risk (Superficial Artifacts)"
+    elif asi_score < 7.0:
+        risk_level = "Elevated Risk (Noticeable Texture Degradation)"
+    else:
+        risk_level = "Critical Risk (Severe Diagnostic Occlusion)"
+
+    severity_metrics = {
+        "asi_score": asi_score,
+        "snr_degradation_db": snr_drop_db,
+        "margin_integrity_pct": margin_integrity,
+        "diagnostic_risk_level": risk_level
+    }
+
+    non_clean_stats = [s for s in class_stats if s["class_id"] > 0]
+    if non_clean_stats:
+        dominant_item = max(non_clean_stats, key=lambda s: s["percentage"])
+        dominant_noise = f"{dominant_item['name']} ({dominant_item['percentage']}%)"
+    else:
+        dominant_noise = "None (Fully Clean)"
+
+    if total_noise_pct < 1.0:
+        quality_grade = "Grade A - Optimal"
+        quality_summary = "Pristine diagnostic quality with negligible noise artifacts."
+    elif total_noise_pct < 10.0:
+        quality_grade = "Grade B - Mild Noise"
+        quality_summary = "Diagnostic structures intact with minor localized noise artifacts."
+    elif total_noise_pct < 30.0:
+        quality_grade = "Grade C - Moderate Artifact"
+        quality_summary = "Significant noise burden present. Denoising protocol recommended prior to automated CADx."
+    else:
+        quality_grade = "Grade D - Severe Artifact"
+        quality_summary = "High noise density degrading fine tissue textures and pulmonary nodule margins."
+
+    restoration_protocols = []
+    for s in non_clean_stats:
+        if s["percentage"] >= 0.5:
+            restoration_protocols.append({
+                "noise_type": s["name"],
+                "area_percentage": s["percentage"],
+                "severity_score": s["severity_score"],
+                "recommended_filter": s["recommended_filter"],
+                "protocol": s["protocol"]
+            })
+
+    gt_stats = None
+    if gt_mask_np is not None:
+        if gt_mask_np.shape != pred_mask_np.shape:
+            gt_mask_np = cv2.resize(gt_mask_np, (pred_mask_np.shape[1], pred_mask_np.shape[0]), interpolation=cv2.INTER_NEAREST)
+        
+        correct_px = int(np.sum(pred_mask_np == gt_mask_np))
+        pixel_acc = round(float(correct_px) / total_px * 100.0, 2)
+        
+        ious = []
+        for c in range(8):
+            p_c = (pred_mask_np == c)
+            g_c = (gt_mask_np == c)
+            intersection = np.sum(p_c & g_c)
+            union = np.sum(p_c | g_c)
+            if union > 0:
+                ious.append(intersection / union)
+        miou = round(float(np.mean(ious)) * 100.0, 2) if ious else 100.0
+        
+        gt_color = mask_to_color_image(gt_mask_np)
+        gt_b64 = numpy_to_base64_png(gt_color)
+        
+        error_map = np.zeros((256, 256, 3), dtype=np.uint8)
+        mismatched = (pred_mask_np != gt_mask_np)
+        error_map[mismatched] = [230, 25, 75]
+        error_map_b64 = numpy_to_base64_png(error_map)
+
+        gt_stats = {
+            "gt_mask_b64": gt_b64,
+            "error_map_b64": error_map_b64,
+            "pixel_accuracy": pixel_acc,
+            "miou": miou
+        }
+
+    # Record telemetry
+    REQUEST_METRICS["total_inferences"] += 1
+    REQUEST_METRICS["latencies_ms"].append(inference_ms)
+    if len(REQUEST_METRICS["latencies_ms"]) > 100:
+        REQUEST_METRICS["latencies_ms"].pop(0)
+
+    history_entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "filename": filename,
+        "inference_ms": inference_ms,
+        "mean_confidence": round(float(conf_map_np.mean()) * 100, 2),
+        "quality_grade": quality_grade,
+        "dominant_noise": dominant_noise,
+        "total_noise_pct": total_noise_pct,
+        "num_rois": len(bounding_boxes)
+    }
+    REQUEST_METRICS["recent_history"].insert(0, history_entry)
+    if len(REQUEST_METRICS["recent_history"]) > 25:
+        REQUEST_METRICS["recent_history"].pop()
+
+    return {
+        "filename": filename,
+        "inference_ms": inference_ms,
+        "mean_confidence": round(float(conf_map_np.mean()) * 100, 2),
+        "total_noise_pct": total_noise_pct,
+        "clean_pct": clean_pct,
+        "dominant_noise": dominant_noise,
+        "quality_grade": quality_grade,
+        "quality_summary": quality_summary,
+        "severity_metrics": severity_metrics,
+        "restoration_protocols": restoration_protocols,
+        "ct_image_b64": ct_b64,
+        "noise_map_b64": noise_map_b64,
+        "overlay_b64": overlay_b64,
+        "confidence_b64": confidence_b64,
+        "bbox_b64": bbox_b64,
+        "hybrid_b64": hybrid_b64,
+        "bounding_boxes": bounding_boxes,
+        "class_stats": class_stats,
+        "gt_stats": gt_stats,
+        "download_mask_url": f"/api/v1/download-mask/{base_id}_pred_mask.npy"
+    }
+
+# =========================================================================
+# WEB APPLICATION & ROUTE DEFINITIONS
+# =========================================================================
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/healthz', methods=['GET'])
+@app.route('/api/v1/health', methods=['GET'])
 def healthz():
+    REQUEST_METRICS["total_requests"] += 1
+    uptime_sec = round(time.time() - SERVER_START_TIME, 1)
     return jsonify({
         "status": "healthy" if model is not None else "degraded",
         "model_loaded": model is not None,
+        "uptime_seconds": uptime_sec,
+        "uptime_human": f"{int(uptime_sec // 3600)}h {int((uptime_sec % 3600) // 60)}m {int(uptime_sec % 60)}s",
+        "device": str(DEVICE),
+        "cuda_available": torch.cuda.is_available(),
         "error": model_error
     })
 
+@app.route('/api/v1/system-info', methods=['GET'])
+def system_info():
+    REQUEST_METRICS["total_requests"] += 1
+    file_size_mb = round(os.path.getsize(MODEL_PATH) / (1024 * 1024), 2) if os.path.exists(MODEL_PATH) else 0.0
+    return jsonify({
+        "system": {
+            "os": platform.system(),
+            "os_release": platform.release(),
+            "python_version": platform.python_version(),
+            "torch_version": torch.__version__,
+            "opencv_version": cv2.__version__,
+            "device": str(DEVICE),
+            "cuda_available": torch.cuda.is_available(),
+            "cuda_device_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "N/A"
+        },
+        "model": {
+            "architecture": "5-Level Nested U-Net (UNet++)",
+            "weights_path": MODEL_PATH,
+            "weights_size_mb": file_size_mb,
+            "parameters": "9,161,288",
+            "checkpoint_epoch": 84,
+            "validation_miou": 96.65,
+            "pixel_accuracy": 98.42
+        },
+        "api_version": "v1.0.0",
+        "docs_endpoint": "/api/v1/openapi.json"
+    })
+
+@app.route('/api/v1/metrics', methods=['GET'])
+def get_metrics():
+    REQUEST_METRICS["total_requests"] += 1
+    latencies = REQUEST_METRICS["latencies_ms"]
+    avg_latency = round(float(np.mean(latencies)), 2) if latencies else 0.0
+    min_latency = round(float(np.min(latencies)), 2) if latencies else 0.0
+    max_latency = round(float(np.max(latencies)), 2) if latencies else 0.0
+    
+    return jsonify({
+        "total_api_requests": REQUEST_METRICS["total_requests"],
+        "total_inferences": REQUEST_METRICS["total_inferences"],
+        "total_batch_jobs": REQUEST_METRICS["total_batch_jobs"],
+        "average_latency_ms": avg_latency,
+        "min_latency_ms": min_latency,
+        "max_latency_ms": max_latency,
+        "server_uptime_seconds": round(time.time() - SERVER_START_TIME, 1)
+    })
+
+@app.route('/api/v1/history', methods=['GET'])
+def get_history():
+    REQUEST_METRICS["total_requests"] += 1
+    return jsonify({
+        "count": len(REQUEST_METRICS["recent_history"]),
+        "history": REQUEST_METRICS["recent_history"]
+    })
+
+@app.route('/api/v1/history/clear', methods=['POST'])
+def clear_history():
+    REQUEST_METRICS["recent_history"] = []
+    return jsonify({"status": "cleared", "count": 0})
+
 @app.route('/api/samples', methods=['GET'])
+@app.route('/api/v1/samples', methods=['GET'])
 def get_samples():
-    """Returns list of preloaded sample test CT images."""
+    REQUEST_METRICS["total_requests"] += 1
     if not os.path.exists(TEST_IMAGES_DIR):
         return jsonify({"samples": [], "classes": CLASS_NAMES, "colors": CLASS_COLORS, "recommendations": CLASS_RECOMMENDATIONS})
     
@@ -265,18 +563,9 @@ def get_samples():
     return jsonify({"samples": sample_list, "classes": CLASS_NAMES, "colors": CLASS_COLORS, "recommendations": CLASS_RECOMMENDATIONS})
 
 @app.route('/api/predict', methods=['POST'])
+@app.route('/api/v1/predict', methods=['POST'])
 def run_prediction():
-    """Runs U-Net++ pixel-level & bounding-box segmentation."""
-    global model, model_error
-
-    if model is None:
-        init_model()
-        if model is None:
-            return jsonify({
-                "error": f"Model is not loaded. {model_error or 'Check server logs.'}"
-            }), 500
-
-    start_time = time.time()
+    REQUEST_METRICS["total_requests"] += 1
     sample_filename = request.form.get('sample_filename')
     gt_mask_np = None
     
@@ -298,227 +587,109 @@ def run_prediction():
                     break
         else:
             if 'file' not in request.files:
-                return jsonify({"error": "No file uploaded"}), 400
+                return jsonify({"error": "No file uploaded. Pass 'file' multipart or 'sample_filename'."}), 400
             file = request.files['file']
             if file.filename == '':
-                return jsonify({"error": "Empty filename"}), 400
+                return jsonify({"error": "Empty filename provided"}), 400
             file_bytes = file.read()
             filename = file.filename
 
-        img_np, tensor_in = preprocess_image_bytes(file_bytes, filename)
-
-        # Model inference in inference mode
-        with torch.no_grad():
-            logits = model(tensor_in)
-            probs = torch.softmax(logits, dim=1)
-            conf_map, pred_mask = torch.max(probs, dim=1)
-
-        inference_ms = round((time.time() - start_time) * 1000, 1)
-
-        pred_mask_np = pred_mask.squeeze().cpu().numpy().astype(np.uint8)
-        conf_map_np = conf_map.squeeze().cpu().numpy().astype(np.float32)
-
-        # Clean memory immediately
-        del logits, probs, conf_map, pred_mask, tensor_in
-        gc.collect()
-
-        # Save predicted mask to predictions folder
-        base_id = os.path.splitext(filename)[0]
-        out_mask_path = os.path.join(PREDICTIONS_DIR, f"{base_id}_pred_mask.npy")
-        np.save(out_mask_path, pred_mask_np)
-
-        # 1. CT Grayscale Base64
-        ct_uint8 = (img_np * 255.0).astype(np.uint8)
-        ct_b64 = numpy_to_base64_png(ct_uint8)
-
-        # 2. Pixel-Level Noise Map (Color-coded)
-        color_mask = mask_to_color_image(pred_mask_np)
-        noise_map_b64 = numpy_to_base64_png(color_mask)
-
-        # 3. CT + Prediction Overlay
-        gray_3ch = np.stack([ct_uint8]*3, axis=-1)
-        non_clean = (pred_mask_np > 0)
-        overlay = gray_3ch.copy()
-        overlay[non_clean] = (0.5 * gray_3ch[non_clean] + 0.5 * color_mask[non_clean]).astype(np.uint8)
-        overlay_b64 = numpy_to_base64_png(overlay)
-
-        # 4. Confidence Heatmap
-        confidence_b64 = generate_confidence_heatmap(conf_map_np)
-
-        # 5. Bounding Box Feature Extraction
-        bounding_boxes = extract_bounding_boxes(pred_mask_np, conf_map_np)
-        bbox_only_img = generate_bbox_overlay_image(ct_uint8, bounding_boxes, pred_mask_np, include_mask_blend=False)
-        bbox_b64 = numpy_to_base64_png(bbox_only_img)
-
-        # 6. Hybrid View (Pixel-Level Mask + Bounding Boxes)
-        hybrid_img = generate_bbox_overlay_image(ct_uint8, bounding_boxes, pred_mask_np, include_mask_blend=True)
-        hybrid_b64 = numpy_to_base64_png(hybrid_img)
-
-        # Class distribution and clinical recommendations
-        unique_classes, counts = np.unique(pred_mask_np, return_counts=True)
-        total_px = pred_mask_np.size
-        class_stats = []
-        total_noise_px = 0
-        
-        # Severity weights per noise type
-        SEVERITY_WEIGHTS = {0: 0.0, 1: 0.85, 2: 1.0, 3: 0.75, 4: 0.80, 5: 0.60, 6: 0.95, 7: 0.90}
-
-        for c, cnt in zip(unique_classes, counts):
-            cid = int(c)
-            pct = round(float(cnt) / total_px * 100, 2)
-            if cid > 0:
-                total_noise_px += int(cnt)
-            recom = CLASS_RECOMMENDATIONS.get(cid, {})
-            # Class-specific severity score (0.0 to 10.0)
-            class_sev_score = 0.0 if cid == 0 else round(min(10.0, (pct * SEVERITY_WEIGHTS.get(cid, 0.8) * 0.45) + (1.5 if pct > 1.0 else 0.5)), 1)
-            
-            class_stats.append({
-                "class_id": cid,
-                "name": CLASS_NAMES[cid],
-                "color": CLASS_COLORS[cid],
-                "percentage": pct,
-                "pixels": int(cnt),
-                "severity": recom.get("severity", "Unknown"),
-                "severity_score": class_sev_score,
-                "description": recom.get("description", ""),
-                "recommended_filter": recom.get("recommended_filter", ""),
-                "protocol": recom.get("protocol", "")
-            })
-
-        total_noise_pct = round(float(total_noise_px) / total_px * 100, 2)
-        clean_pct = round(100.0 - total_noise_pct, 2)
-
-        # Quantitative Severity Estimation Engine
-        # 1. Artifact Severity Index (ASI): 0.0 - 10.0 scale
-        asi_score = round(min(10.0, (total_noise_pct * 0.26) + (len(unique_classes) - 1) * 0.4), 2)
-        # 2. Estimated SNR Degradation in dB: -10 * log10(1 + noise_ratio * 2.5)
-        noise_ratio = total_noise_pct / 100.0
-        snr_drop_db = round(-10.0 * np.log10(1.0 + (noise_ratio * 3.5) + 1e-6), 2)
-        # 3. Pulmonary Margin Integrity (%)
-        margin_integrity = round(max(0.0, 100.0 - (total_noise_pct * 1.35)), 1)
-        # 4. Clinical Diagnostic Risk Level
-        if asi_score < 1.5:
-            risk_level = "Low Diagnostic Risk (Optimal Quality)"
-        elif asi_score < 4.0:
-            risk_level = "Moderate Risk (Superficial Artifacts)"
-        elif asi_score < 7.0:
-            risk_level = "Elevated Risk (Noticeable Texture Degradation)"
-        else:
-            risk_level = "Critical Risk (Severe Diagnostic Occlusion)"
-
-        severity_metrics = {
-            "asi_score": asi_score,
-            "snr_degradation_db": snr_drop_db,
-            "margin_integrity_pct": margin_integrity,
-            "diagnostic_risk_level": risk_level
-        }
-
-        # Determine dominant noise type
-        non_clean_stats = [s for s in class_stats if s["class_id"] > 0]
-        if non_clean_stats:
-            dominant_item = max(non_clean_stats, key=lambda s: s["percentage"])
-            dominant_noise = f"{dominant_item['name']} ({dominant_item['percentage']}%)"
-        else:
-            dominant_noise = "None (Fully Clean)"
-
-        # Diagnostic quality assessment
-        if total_noise_pct < 1.0:
-            quality_grade = "Grade A - Optimal"
-            quality_summary = "Pristine diagnostic quality with negligible noise artifacts."
-        elif total_noise_pct < 10.0:
-            quality_grade = "Grade B - Mild Noise"
-            quality_summary = "Diagnostic structures intact with minor localized noise artifacts."
-        elif total_noise_pct < 30.0:
-            quality_grade = "Grade C - Moderate Artifact"
-            quality_summary = "Significant noise burden present. Denoising protocol recommended prior to automated CADx."
-        else:
-            quality_grade = "Grade D - Severe Artifact"
-            quality_summary = "High noise density degrading fine tissue textures and pulmonary nodule margins."
-
-        # Active restoration recommendations
-        restoration_protocols = []
-        for s in non_clean_stats:
-            if s["percentage"] >= 0.5:  # Only recommend for notable presence
-                restoration_protocols.append({
-                    "noise_type": s["name"],
-                    "area_percentage": s["percentage"],
-                    "severity_score": s["severity_score"],
-                    "recommended_filter": s["recommended_filter"],
-                    "protocol": s["protocol"]
-                })
-
-        # Optional Ground Truth Evaluation
-        gt_stats = None
-        if gt_mask_np is not None:
-            if gt_mask_np.shape != pred_mask_np.shape:
-                gt_mask_np = cv2.resize(gt_mask_np, (pred_mask_np.shape[1], pred_mask_np.shape[0]), interpolation=cv2.INTER_NEAREST)
-            
-            correct_px = int(np.sum(pred_mask_np == gt_mask_np))
-            pixel_acc = round(float(correct_px) / total_px * 100.0, 2)
-            
-            ious = []
-            for c in range(8):
-                p_c = (pred_mask_np == c)
-                g_c = (gt_mask_np == c)
-                intersection = np.sum(p_c & g_c)
-                union = np.sum(p_c | g_c)
-                if union > 0:
-                    ious.append(intersection / union)
-            miou = round(float(np.mean(ious)) * 100.0, 2) if ious else 100.0
-            
-            gt_color = mask_to_color_image(gt_mask_np)
-            gt_b64 = numpy_to_base64_png(gt_color)
-            
-            error_map = np.zeros((256, 256, 3), dtype=np.uint8)
-            mismatched = (pred_mask_np != gt_mask_np)
-            error_map[mismatched] = [230, 25, 75]
-            error_map_b64 = numpy_to_base64_png(error_map)
-
-            gt_stats = {
-                "gt_mask_b64": gt_b64,
-                "error_map_b64": error_map_b64,
-                "pixel_accuracy": pixel_acc,
-                "miou": miou
-            }
-
-        response_data = {
-            "filename": filename,
-            "inference_ms": inference_ms,
-            "mean_confidence": round(float(conf_map_np.mean()) * 100, 2),
-            "total_noise_pct": total_noise_pct,
-            "clean_pct": clean_pct,
-            "dominant_noise": dominant_noise,
-            "quality_grade": quality_grade,
-            "quality_summary": quality_summary,
-            "severity_metrics": severity_metrics,
-            "restoration_protocols": restoration_protocols,
-            "ct_image_b64": ct_b64,
-            "noise_map_b64": noise_map_b64,
-            "overlay_b64": overlay_b64,
-            "confidence_b64": confidence_b64,
-            "bbox_b64": bbox_b64,
-            "hybrid_b64": hybrid_b64,
-            "bounding_boxes": bounding_boxes,
-            "class_stats": class_stats,
-            "gt_stats": gt_stats,
-            "download_mask_url": f"/api/download-mask/{base_id}_pred_mask.npy"
-        }
+        response_data = run_single_inference(file_bytes, filename, gt_mask_np)
         return jsonify(response_data)
 
     except Exception as e:
-        print(f"[ERROR in /api/predict]: {e}")
+        print(f"[ERROR in /api/v1/predict]: {e}")
         return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
 
-@app.route('/api/download-mask/<filename>', methods=['GET'])
-def download_mask(filename):
-    fpath = os.path.join(PREDICTIONS_DIR, filename)
-    if not os.path.exists(fpath):
-        return jsonify({"error": "File not found"}), 404
-    return send_file(fpath, as_attachment=True, download_name=filename)
+@app.route('/api/v1/batch-predict', methods=['POST'])
+def run_batch_prediction():
+    """Runs batch inference on multiple uploaded files or sample names."""
+    REQUEST_METRICS["total_requests"] += 1
+    REQUEST_METRICS["total_batch_jobs"] += 1
+    start_batch = time.time()
+    
+    results = []
+    files = request.files.getlist('files')
+    sample_names = request.form.getlist('sample_filenames')
+
+    try:
+        # Process uploaded files
+        if files:
+            for f in files:
+                if f.filename:
+                    fbytes = f.read()
+                    res = run_single_inference(fbytes, f.filename)
+                    results.append(res)
+
+        # Process sample filenames
+        if sample_names:
+            for sname in sample_names:
+                ipath = os.path.join(TEST_IMAGES_DIR, sname)
+                if os.path.exists(ipath):
+                    with open(ipath, 'rb') as sf:
+                        fbytes = sf.read()
+                    res = run_single_inference(fbytes, sname)
+                    results.append(res)
+
+        batch_time_ms = round((time.time() - start_batch) * 1000, 1)
+        avg_conf = round(float(np.mean([r['mean_confidence'] for r in results])), 2) if results else 0.0
+
+        return jsonify({
+            "batch_size": len(results),
+            "total_batch_time_ms": batch_time_ms,
+            "average_slice_latency_ms": round(batch_time_ms / max(1, len(results)), 1),
+            "average_confidence": avg_conf,
+            "slices": results
+        })
+    except Exception as e:
+        return jsonify({"error": f"Batch prediction failed: {str(e)}"}), 500
+
+@app.route('/api/v1/filters/apply', methods=['POST'])
+def apply_restoration_filter():
+    """Backend digital signal processing filter execution on CT slice."""
+    REQUEST_METRICS["total_requests"] += 1
+    filter_type = request.form.get('filter_type', 'median')
+    sample_filename = request.form.get('sample_filename')
+    
+    try:
+        if sample_filename:
+            ipath = os.path.join(TEST_IMAGES_DIR, sample_filename)
+            with open(ipath, 'rb') as f:
+                fbytes = f.read()
+            img_np, _ = preprocess_image_bytes(fbytes, sample_filename)
+        elif 'file' in request.files:
+            f = request.files['file']
+            fbytes = f.read()
+            img_np, _ = preprocess_image_bytes(fbytes, f.filename)
+        else:
+            return jsonify({"error": "No image provided"}), 400
+
+        ct_uint8 = (img_np * 255.0).astype(np.uint8)
+        
+        if filter_type == 'median':
+            filtered = cv2.medianBlur(ct_uint8, 3)
+        elif filter_type == 'gaussian':
+            filtered = cv2.GaussianBlur(ct_uint8, (5, 5), 1.0)
+        elif filter_type == 'bilateral':
+            filtered = cv2.bilateralFilter(ct_uint8, 9, 75, 75)
+        elif filter_type == 'sharpen':
+            kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32)
+            filtered = cv2.filter2D(ct_uint8, -1, kernel)
+        else:
+            filtered = ct_uint8
+
+        filtered_b64 = numpy_to_base64_png(filtered)
+        return jsonify({
+            "filter_type": filter_type,
+            "filtered_image_b64": filtered_b64
+        })
+    except Exception as e:
+        return jsonify({"error": f"Filter application failed: {str(e)}"}), 500
 
 @app.route('/api/model-info', methods=['GET'])
+@app.route('/api/v1/model-info', methods=['GET'])
 def get_model_info():
-    """Returns technical architecture and model checkpoint details."""
+    REQUEST_METRICS["total_requests"] += 1
     file_size_mb = round(os.path.getsize(MODEL_PATH) / (1024 * 1024), 2) if os.path.exists(MODEL_PATH) else 0.0
     return jsonify({
         "model_name": "LungCT_UNetPlusPlus",
@@ -542,8 +713,9 @@ def get_model_info():
     })
 
 @app.route('/api/benchmarks', methods=['GET'])
+@app.route('/api/v1/benchmarks', methods=['GET'])
 def get_benchmarks():
-    """Returns validation metrics and benchmark comparisons."""
+    REQUEST_METRICS["total_requests"] += 1
     return jsonify({
         "overall": {
             "val_miou": 96.65,
@@ -570,6 +742,74 @@ def get_benchmarks():
         ]
     })
 
+@app.route('/api/download-mask/<filename>', methods=['GET'])
+@app.route('/api/v1/download-mask/<filename>', methods=['GET'])
+def download_mask(filename):
+    REQUEST_METRICS["total_requests"] += 1
+    fpath = os.path.join(PREDICTIONS_DIR, filename)
+    if not os.path.exists(fpath):
+        return jsonify({"error": "File not found"}), 404
+    return send_file(fpath, as_attachment=True, download_name=filename)
+
+@app.route('/api/v1/openapi.json', methods=['GET'])
+def get_openapi_spec():
+    """Returns standard OpenAPI 3.0.3 specification for Swagger/Postman imports."""
+    spec = {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "LungCT UNet++ Diagnostic API",
+            "version": "1.0.0",
+            "description": "Full-Stack Medical AI Neural Inference REST API for pixel-level multi-noise classification and automated CADx in Lung CT radiography."
+        },
+        "servers": [{"url": "http://localhost:5000", "description": "Local Development Server"}],
+        "paths": {
+            "/api/v1/predict": {
+                "post": {
+                    "summary": "Execute pixel-level neural segmentation",
+                    "requestBody": {
+                        "content": {
+                            "multipart/form-data": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "file": {"type": "string", "format": "binary"},
+                                        "sample_filename": {"type": "string"}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "Segmentation maps, bounding boxes, quality grading"}}
+                }
+            },
+            "/api/v1/batch-predict": {
+                "post": {
+                    "summary": "Execute batch neural inference across multiple CT slices",
+                    "responses": {"200": {"description": "Batch metrics and slice-by-slice results"}}
+                }
+            },
+            "/api/v1/samples": {
+                "get": {
+                    "summary": "List preloaded benchmark CT test slices",
+                    "responses": {"200": {"description": "List of sample filenames and metadata"}}
+                }
+            },
+            "/api/v1/metrics": {
+                "get": {
+                    "summary": "Real-time API performance telemetry and latency metrics",
+                    "responses": {"200": {"description": "Request counts, average latency, and uptime"}}
+                }
+            },
+            "/api/v1/history": {
+                "get": {
+                    "summary": "Retrieve recent prediction history and diagnosis logs",
+                    "responses": {"200": {"description": "List of recent inference records"}}
+                }
+            }
+        }
+    }
+    return jsonify(spec)
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description="LungCT UNet++ Web Server")
@@ -581,6 +821,6 @@ if __name__ == '__main__':
     print(f">> LungCT U-Net++ Web Application running at: http://localhost:{args.port}")
     print(f"   Model Checkpoint : {MODEL_PATH}")
     print(f"   Device           : {DEVICE}")
+    print(f"   OpenAPI Spec     : http://localhost:{args.port}/api/v1/openapi.json")
     print("="*65 + "\n")
     app.run(host=args.host, port=args.port, debug=False)
-
