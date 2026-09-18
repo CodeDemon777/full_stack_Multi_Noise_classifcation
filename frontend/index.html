@@ -1,0 +1,1865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LungCT UNet++ | Full-Stack AI Diagnostic Studio & Radiology Portal</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="config.js"></script>
+    <style>
+        :root {
+            --bg-base: #030712;
+            --bg-card: rgba(15, 23, 42, 0.72);
+            --bg-card-hover: rgba(30, 41, 59, 0.85);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --card-border-glow: rgba(6, 182, 212, 0.45);
+            
+            --primary: #06b6d4;
+            --primary-rgb: 6, 182, 212;
+            --secondary: #8b5cf6;
+            --secondary-rgb: 139, 92, 246;
+            --accent-pink: #ec4899;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-blue: #3b82f6;
+
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+
+            --card-radius: 20px;
+            --radius-md: 14px;
+            --radius-sm: 8px;
+            
+            --transition-smooth: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+            padding-bottom: 80px;
+            line-height: 1.55;
+        }
+
+        /* Ambient Aurora Dynamic Canvas Background */
+        .aurora-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .aurora-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.5;
+            animation: floatAurora 22s ease-in-out infinite alternate;
+        }
+
+        .blob-1 {
+            width: 700px;
+            height: 700px;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.75) 0%, rgba(14, 116, 144, 0.15) 70%, transparent 100%);
+            top: -20%;
+            right: -10%;
+            animation-duration: 24s;
+        }
+
+        .blob-2 {
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.7) 0%, rgba(109, 40, 217, 0.15) 70%, transparent 100%);
+            bottom: -25%;
+            left: -15%;
+            animation-duration: 28s;
+            animation-delay: -6s;
+        }
+
+        .blob-3 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.55) 0%, rgba(190, 24, 93, 0.12) 70%, transparent 100%);
+            top: 35%;
+            left: 40%;
+            animation-duration: 20s;
+            animation-delay: -11s;
+        }
+
+        .blob-4 {
+            width: 550px;
+            height: 550px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.45) 0%, rgba(5, 150, 105, 0.12) 70%, transparent 100%);
+            bottom: 15%;
+            right: 15%;
+            animation-duration: 26s;
+            animation-delay: -8s;
+        }
+
+        .grid-pattern-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+            mask-image: radial-gradient(circle at center, black 45%, transparent 95%);
+            -webkit-mask-image: radial-gradient(circle at center, black 45%, transparent 95%);
+        }
+
+        @keyframes floatAurora {
+            0% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+            33% { transform: translate(80px, -60px) scale(1.12) rotate(45deg); }
+            66% { transform: translate(-60px, 70px) scale(0.92) rotate(-30deg); }
+            100% { transform: translate(40px, -40px) scale(1.08) rotate(15deg); }
+        }
+
+        /* Container */
+        .container {
+            max-width: 1620px;
+            margin: 0 auto;
+            padding: 16px 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Cloud API Config Banner */
+        .api-config-banner {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            border-radius: 12px;
+            padding: 8px 16px;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11.5px;
+            flex-wrap: wrap;
+            gap: 10px;
+            backdrop-filter: blur(16px);
+        }
+
+        .api-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .api-input-group input {
+            background: rgba(2, 6, 23, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #38bdf8;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            width: 320px;
+            outline: none;
+        }
+
+        .api-input-group input:focus {
+            border-color: #06b6d4;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+        }
+
+        /* Navigation Bar */
+        .navbar-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 24px;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--card-radius);
+            margin-bottom: 18px;
+            box-shadow: 0 12px 35px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+
+        .logo-group {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6 50%, #ec4899);
+            background-size: 200% 200%;
+            animation: gradientShift 6s ease infinite;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.5), 0 0 40px rgba(139, 92, 246, 0.3);
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .logo-icon svg {
+            width: 26px;
+            height: 26px;
+            fill: white;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+        }
+
+        .title-group h1 {
+            font-size: 21px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #ffffff 30%, #38bdf8 70%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .title-group p {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 2px;
+        }
+
+        .sub-badge {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(139, 92, 246, 0.25));
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab-btn {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            color: #cbd5e1;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+
+        .nav-tab-btn:hover {
+            background: rgba(30, 41, 59, 0.95);
+            color: #ffffff;
+            border-color: rgba(6, 182, 212, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .nav-tab-btn.active {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(139, 92, 246, 0.25));
+            border-color: #06b6d4;
+            color: #ffffff;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.35);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .badge-status {
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+            padding: 6px 12px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulseDot 2s infinite;
+        }
+
+        @keyframes pulseDot {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.35); opacity: 0.6; }
+        }
+
+        .btn-header-cta {
+            background: linear-gradient(135deg, #10b981, #06b6d4 60%, #8b5cf6);
+            background-size: 200% 200%;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: var(--transition-smooth);
+            animation: gradientShift 5s ease infinite;
+        }
+
+        .btn-header-cta:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 8px 30px rgba(6, 182, 212, 0.6);
+        }
+
+        /* Quick Stats Ribbon */
+        .stats-ribbon {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1200px) { .stats-ribbon { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 700px) { .stats-ribbon { grid-template-columns: repeat(2, 1fr); } }
+
+        .ribbon-card {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: var(--transition-smooth);
+        }
+
+        .ribbon-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(6, 182, 212, 0.35);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .ribbon-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .icon-cyan { background: rgba(6, 182, 212, 0.15); color: #38bdf8; border: 1px solid rgba(6, 182, 212, 0.3); }
+        .icon-purple { background: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3); }
+        .icon-emerald { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .icon-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .icon-pink { background: rgba(236, 72, 153, 0.15); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.3); }
+        .icon-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+
+        .ribbon-info h4 {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+
+        .ribbon-info p {
+            font-size: 14.5px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            color: #f8fafc;
+            margin-top: 1px;
+        }
+
+        /* Legend Bar */
+        .legend-bar {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 12px 20px;
+            margin-bottom: 22px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.4);
+        }
+
+        .legend-title {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.1px;
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11.5px;
+            font-weight: 600;
+            background: rgba(15, 23, 42, 0.75);
+            padding: 6px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            user-select: none;
+        }
+
+        .legend-item:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .color-chip {
+            width: 13px;
+            height: 13px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            flex-shrink: 0;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        /* View Sections */
+        .view-section {
+            display: none;
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .view-section.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Main Workspace Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 22px;
+        }
+
+        @media (max-width: 1120px) { .main-grid { grid-template-columns: 1fr; } }
+
+        .control-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--card-radius);
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            height: fit-content;
+            box-shadow: 0 15px 35px -15px rgba(0, 0, 0, 0.6);
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .section-title span.icon-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #f8fafc, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .dropzone {
+            border: 2px dashed rgba(6, 182, 212, 0.4);
+            border-radius: 14px;
+            padding: 18px 14px;
+            text-align: center;
+            background: rgba(6, 182, 212, 0.04);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dropzone:hover, .dropzone.dragover {
+            border-color: #06b6d4;
+            background: rgba(6, 182, 212, 0.12);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(6, 182, 212, 0.25);
+        }
+
+        .dropzone svg {
+            width: 32px;
+            height: 32px;
+            stroke: #06b6d4;
+            margin-bottom: 6px;
+            filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.6));
+            transition: transform 0.3s;
+        }
+
+        .dropzone p { font-size: 12px; color: var(--text-muted); }
+        .dropzone span { color: #38bdf8; font-weight: 700; }
+
+        .sample-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .sample-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 9px;
+            cursor: pointer;
+            text-align: center;
+            transition: var(--transition-smooth);
+        }
+
+        .sample-card:hover {
+            border-color: #06b6d4;
+            background: rgba(6, 182, 212, 0.12);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(6, 182, 212, 0.2);
+        }
+
+        .sample-card.active {
+            border-color: #06b6d4;
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(139, 92, 246, 0.2));
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+            transform: scale(1.02);
+        }
+
+        .sample-name {
+            font-size: 11px;
+            font-weight: 700;
+            color: #f1f5f9;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .sample-tag {
+            font-size: 9.5px;
+            font-weight: 600;
+            color: #38bdf8;
+            background: rgba(6, 182, 212, 0.15);
+            padding: 2px 7px;
+            border-radius: 4px;
+            margin-top: 4px;
+            display: inline-block;
+        }
+
+        .sidebar-tools-box {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .tool-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+            outline: none;
+            margin-top: 5px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #06b6d4;
+            cursor: pointer;
+            box-shadow: 0 0 10px #06b6d4;
+        }
+
+        .preset-pill-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .preset-pill {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .preset-pill:hover, .preset-pill.active {
+            background: #06b6d4;
+            color: #030712;
+            border-color: #06b6d4;
+            font-weight: 800;
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+        }
+
+        .btn-predict {
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6 50%, #ec4899);
+            background-size: 200% 200%;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 13.5px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 6px 25px rgba(6, 182, 212, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: var(--transition-smooth);
+            animation: gradientShift 6s ease infinite;
+        }
+
+        .btn-predict:hover { transform: translateY(-2px) scale(1.02); }
+        .btn-predict:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .display-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--card-radius);
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 15px 35px -15px rgba(0, 0, 0, 0.6);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 14px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tab-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.05); }
+        .tab-btn.active { background: #06b6d4; color: #030712; box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
+
+        .viewer-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        @media (max-width: 768px) { .viewer-grid { grid-template-columns: 1fr; } }
+
+        .viewer-card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition-smooth);
+        }
+
+        .viewer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #e2e8f0;
+        }
+
+        .viewer-img-container {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: #000000;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .viewer-img-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            image-rendering: pixelated;
+        }
+
+        .scanner-sweep {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #06b6d4 50%, transparent);
+            box-shadow: 0 0 15px #06b6d4;
+            animation: sweepDown 1.8s ease-in-out infinite;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        @keyframes sweepDown {
+            0% { top: 0%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        .pixel-inspector-hud {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            pointer-events: none;
+        }
+
+        .split-curtain-container {
+            position: relative;
+            width: 100%;
+            max-width: 512px;
+            aspect-ratio: 1 / 1;
+            margin: 0 auto;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid rgba(6, 182, 212, 0.4);
+            user-select: none;
+            cursor: ew-resize;
+        }
+
+        .curtain-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        .curtain-overlay-wrapper { position: absolute; top: 0; left: 0; width: 50%; height: 100%; overflow: hidden; border-right: 2px solid #38bdf8; }
+        .curtain-overlay-wrapper img { position: absolute; top: 0; left: 0; width: 512px; height: 512px; max-width: none; object-fit: cover; }
+        .curtain-handle { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 38px; height: 38px; background: #06b6d4; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #030712; font-weight: 800; z-index: 10; pointer-events: none; }
+        .curtain-label { position: absolute; top: 10px; padding: 4px 10px; background: rgba(0, 0, 0, 0.8); border-radius: 6px; font-size: 11px; font-weight: 700; z-index: 5; }
+        .curtain-label.left { left: 10px; color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.4); }
+        .curtain-label.right { right: 10px; color: #38bdf8; border: 1px solid rgba(6, 182, 212, 0.4); }
+
+        .metrics-container { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 6px; }
+        @media (max-width: 900px) { .metrics-container { grid-template-columns: 1fr; } }
+        .metrics-card { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 18px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+        @media (max-width: 600px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+        .stat-box { background: rgba(30, 41, 59, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 8px; text-align: center; }
+        .stat-val { font-size: 17px; font-weight: 800; font-family: 'JetBrains Mono', monospace; background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-val.emerald { background: linear-gradient(135deg, #34d399, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-val.amber { background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-val.rose { background: linear-gradient(135deg, #fb7185, #f43f5e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-lbl { font-size: 9.5px; font-weight: 700; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; }
+
+        .grade-banner { background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(139, 92, 246, 0.12)); border: 1px solid rgba(6, 182, 212, 0.35); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+        .grade-title { font-size: 13px; font-weight: 800; color: #38bdf8; }
+        .grade-desc { font-size: 11.5px; color: #cbd5e1; margin-top: 2px; }
+
+        .bbox-table-container { max-height: 160px; overflow-y: auto; margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        .bbox-table { width: 100%; border-collapse: collapse; font-size: 11.5px; text-align: left; }
+        .bbox-table th { background: rgba(30, 41, 59, 0.95); padding: 8px 10px; color: var(--text-muted); font-weight: 700; position: sticky; top: 0; }
+        .bbox-table td { padding: 6px 10px; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+
+        .class-bar-list { display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 6px; }
+        .class-bar-row { display: flex; align-items: center; gap: 10px; font-size: 11.5px; font-weight: 600; }
+        .class-bar-name { width: 115px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e2e8f0; }
+        .class-bar-track { flex: 1; height: 8px; background: rgba(255, 255, 255, 0.08); border-radius: 6px; overflow: hidden; }
+        .class-bar-fill { height: 100%; border-radius: 6px; transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 0 10px currentColor; }
+        .class-bar-pct { width: 48px; text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+        .actions-row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
+        .btn-action { background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text-main); padding: 9px 15px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 7px; transition: var(--transition-smooth); }
+        .btn-action:hover { border-color: #06b6d4; background: rgba(6, 182, 212, 0.15); transform: translateY(-2px); }
+        .btn-action.highlight-btn { background: linear-gradient(135deg, #06b6d4, #8b5cf6); color: white; border: none; }
+
+        .doc-section-card { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--card-radius); padding: 32px; margin-bottom: 24px; box-shadow: 0 15px 40px -15px rgba(0, 0, 0, 0.6); }
+        .doc-title { font-size: 20px; font-weight: 800; color: #ffffff; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #ffffff, #38bdf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .doc-subtitle { font-size: 13.5px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.6; }
+
+        .code-snippet-box { background: #020617; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 16px 20px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #38bdf8; position: relative; overflow-x: auto; margin: 14px 0; line-height: 1.6; }
+        .copy-btn { position: absolute; top: 10px; right: 10px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); color: #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
+        .copy-btn:hover { background: #06b6d4; color: #030712; }
+
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin: 20px 0; }
+        .feature-box { background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 20px; }
+        .feature-box h4 { font-size: 14.5px; font-weight: 700; color: #38bdf8; margin-bottom: 8px; }
+        .feature-box p { font-size: 12.5px; color: #cbd5e1; line-height: 1.6; }
+
+        .data-table-wrapper { overflow-x: auto; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; margin: 16px 0; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left; }
+        .data-table th { background: rgba(30, 41, 59, 0.95); padding: 12px 16px; color: #38bdf8; font-weight: 700; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        .data-table td { padding: 11px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #e2e8f0; }
+
+        .method-badge { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; }
+        .method-get { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .method-post { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+
+        .api-tester-card { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+        .api-tester-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+        .api-endpoint-label { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 10px; }
+        .btn-try-api { background: linear-gradient(135deg, #06b6d4, #8b5cf6); color: white; border: none; padding: 6px 14px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(3, 7, 18, 0.85); backdrop-filter: blur(12px); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
+        .modal-backdrop.active { display: flex; }
+        .report-modal { background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
+        .modal-topbar { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); background: rgba(30, 41, 59, 0.8); position: sticky; top: 0; z-index: 10; }
+        .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid rgba(255, 255, 255, 0.1); background: rgba(30, 41, 59, 0.8); position: sticky; bottom: 0; z-index: 10; }
+
+        .report-header-card { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 16px 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 12px; }
+        @media (max-width: 650px) { .report-header-card { grid-template-columns: 1fr; } }
+        .report-grid-preview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .report-thumb-card { background: #000; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1); text-align: center; }
+        .report-thumb-card img { width: 100%; aspect-ratio: 1/1; object-fit: contain; }
+        .report-thumb-title { font-size: 10.5px; font-weight: 700; color: #94a3b8; padding: 5px; background: #0f172a; }
+
+        .toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 10000; pointer-events: none; }
+        .toast { background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(6, 182, 212, 0.5); color: #ffffff; padding: 12px 18px; border-radius: 12px; font-size: 12.5px; font-weight: 600; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6); backdrop-filter: blur(16px); display: flex; align-items: center; gap: 10px; pointer-events: auto; }
+        .hidden { display: none !important; }
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: #ffffff; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media print {
+            body { background: white !important; color: black !important; padding: 0 !important; }
+            .aurora-container, .grid-pattern-overlay, .navbar-main, .api-config-banner, .stats-ribbon, .legend-bar, .modal-topbar, .modal-footer, .control-panel, .tabs, .actions-row { display: none !important; }
+            .modal-backdrop { position: static !important; display: block !important; background: transparent !important; }
+            .report-modal { max-width: 100% !important; border: none !important; box-shadow: none !important; background: white !important; color: black !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="aurora-container">
+        <div class="aurora-blob blob-1"></div>
+        <div class="aurora-blob blob-2"></div>
+        <div class="aurora-blob blob-3"></div>
+        <div class="aurora-blob blob-4"></div>
+    </div>
+    <div class="grid-pattern-overlay"></div>
+
+    <div class="container">
+        <!-- Vercel <-> Render API Connection Resolver Bar -->
+        <div class="api-config-banner">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 700; color: #38bdf8;">🌐 Backend Gateway:</span>
+                <span id="backendStatusPill" style="background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono';">CONNECTING...</span>
+            </div>
+            <div class="api-input-group">
+                <input type="text" id="apiBaseUrlInput" placeholder="https://your-app.onrender.com" onchange="saveApiUrl(this.value)">
+                <button class="preset-pill active" onclick="testBackendConnection()">Ping API</button>
+            </div>
+        </div>
+
+        <!-- Top Navigation -->
+        <header class="navbar-main">
+            <div class="logo-group" onclick="switchNavTab('studio')">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                    </svg>
+                </div>
+                <div class="title-group">
+                    <h1>LungCT UNet++ <span class="sub-badge">VERCEL + RENDER</span></h1>
+                    <p>
+                        <span>Full-Stack Medical AI Diagnostic Studio & REST API Gateway</span>
+                        <span>•</span>
+                        <span style="color: #38bdf8; font-weight: 700;">LoDoPaB-CT</span>
+                    </p>
+                </div>
+            </div>
+
+            <nav class="nav-links">
+                <button class="nav-tab-btn active" id="navBtn-studio" onclick="switchNavTab('studio')">
+                    <span>🔬 AI Diagnostic Studio</span>
+                </button>
+                <button class="nav-tab-btn" id="navBtn-resume" onclick="switchNavTab('resume')">
+                    <span>💼 Full-Stack Portfolio</span>
+                </button>
+                <button class="nav-tab-btn" id="navBtn-api" onclick="switchNavTab('api')">
+                    <span>⚡ REST API Explorer</span>
+                </button>
+                <button class="nav-tab-btn" id="navBtn-architecture" onclick="switchNavTab('architecture')">
+                    <span>📖 Architecture & Math</span>
+                </button>
+                <button class="nav-tab-btn" id="navBtn-guide" onclick="switchNavTab('guide')">
+                    <span>💻 Local & Cloud Guide</span>
+                </button>
+                <button class="nav-tab-btn" id="navBtn-benchmarks" onclick="switchNavTab('benchmarks')">
+                    <span>📊 Benchmarks (96.65%)</span>
+                </button>
+                <button class="nav-tab-btn" id="navBtn-protocols" onclick="switchNavTab('protocols')">
+                    <span>🛡️ Noise Taxonomy</span>
+                </button>
+            </nav>
+
+            <div class="header-actions">
+                <div class="badge-status">
+                    <div class="status-dot"></div>
+                    <span id="modelStatusBadge">UNet++ Ready (105 MB)</span>
+                </div>
+                <button class="btn-header-cta" onclick="openReportModal()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                    </svg>
+                    Clinical Report
+                </button>
+            </div>
+        </header>
+
+        <!-- Ribbon -->
+        <div class="stats-ribbon">
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-cyan">🎯</div>
+                <div class="ribbon-info">
+                    <h4>Validation mIoU</h4>
+                    <p>96.65%</p>
+                </div>
+            </div>
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-emerald">⚡</div>
+                <div class="ribbon-info">
+                    <h4>Pixel Accuracy</h4>
+                    <p>98.42%</p>
+                </div>
+            </div>
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-purple">🌐</div>
+                <div class="ribbon-info">
+                    <h4>Frontend Host</h4>
+                    <p>Vercel Edge</p>
+                </div>
+            </div>
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-amber">⚙️</div>
+                <div class="ribbon-info">
+                    <h4>Backend Host</h4>
+                    <p>Render Free Tier</p>
+                </div>
+            </div>
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-pink">⏱️</div>
+                <div class="ribbon-info">
+                    <h4>Checkpoint Epoch</h4>
+                    <p>Epoch 84 (Best)</p>
+                </div>
+            </div>
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-blue">📂</div>
+                <div class="ribbon-info">
+                    <h4>Benchmark</h4>
+                    <p>LoDoPaB-CT</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legend Bar -->
+        <div class="legend-bar">
+            <div class="legend-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                </svg>
+                Noise Palette Classes
+            </div>
+            <div class="legend-items" id="legendContainer"></div>
+        </div>
+
+        <!-- SECTION 1: STUDIO -->
+        <section class="view-section active" id="section-studio">
+            <div class="main-grid">
+                <!-- Sidebar -->
+                <div class="control-panel">
+                    <div>
+                        <div class="section-title">
+                            <span class="icon-label">📁 1. Load CT Slice</span>
+                            <span style="font-size: 10px; color: #38bdf8;">.NPY / .PNG / .JPG</span>
+                        </div>
+                        <div class="dropzone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                            </svg>
+                            <p><span>Click to upload</span> or drag & drop</p>
+                            <p style="font-size: 10.5px; margin-top: 3px; color: var(--text-dim);">Single slice or LoDoPaB sample</p>
+                            <input type="file" id="fileInput" accept=".npy,.png,.jpg,.jpeg,.dcm" class="hidden" onchange="handleFileUpload(event)">
+                        </div>
+                        <div id="selectedFileInfo" style="font-size: 11px; color: #34d399; margin-top: 6px; display: none; font-family: 'JetBrains Mono';"></div>
+                    </div>
+
+                    <div>
+                        <div class="section-title">
+                            <span class="icon-label">🧪 Preloaded Slices</span>
+                            <span style="font-size: 10.5px; color: var(--text-muted);">LoDoPaB Test Set</span>
+                        </div>
+                        <div class="sample-grid" id="sampleGallery">
+                            <div class="placeholder-text" style="grid-column: span 2;">Loading samples...</div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="section-title">
+                            <span class="icon-label">🎛️ Diagnostic Windowing</span>
+                        </div>
+                        <div class="sidebar-tools-box">
+                            <div class="preset-pill-group">
+                                <button class="preset-pill active" onclick="setWindowPreset('full')">Full Range</button>
+                                <button class="preset-pill" onclick="setWindowPreset('lung')">Lung Window</button>
+                                <button class="preset-pill" onclick="setWindowPreset('mediastinum')">Mediastinum</button>
+                                <button class="preset-pill" onclick="setWindowPreset('bone')">Bone Window</button>
+                            </div>
+                            <div>
+                                <div class="tool-row">
+                                    <span>Overlay Alpha Blend:</span>
+                                    <span id="alphaVal" style="font-family:'JetBrains Mono'; color:#38bdf8;">50%</span>
+                                </div>
+                                <input type="range" id="alphaSlider" min="10" max="90" value="50" oninput="updateAlpha(this.value)">
+                            </div>
+                            <div>
+                                <div class="tool-row">
+                                    <span>Min Detection Confidence:</span>
+                                    <span id="confThreshVal" style="font-family:'JetBrains Mono'; color:#38bdf8;">60%</span>
+                                </div>
+                                <input type="range" id="confThreshSlider" min="30" max="95" value="60" oninput="updateBoxFilter(this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-predict" id="predictBtn" onclick="executePrediction()">
+                        <span id="btnText">⚡ Run UNet++ Neural Inference</span>
+                        <div id="btnSpinner" class="spinner hidden"></div>
+                    </button>
+                </div>
+
+                <!-- Right Display -->
+                <div class="display-panel">
+                    <div class="panel-header">
+                        <h2 style="font-size: 16px; font-weight: 800;" id="resultTitle">Multi-Noise CT Diagnostic Views</h2>
+                        <div class="tabs">
+                            <button class="tab-btn active" onclick="switchViewerTab('quad')">🔲 Quad View</button>
+                            <button class="tab-btn" onclick="switchViewerTab('curtain')">↔️ Split Slider</button>
+                            <button class="tab-btn" onclick="switchViewerTab('bbox')">📦 Bounding Boxes</button>
+                            <button class="tab-btn" onclick="switchViewerTab('filterlab')">🧪 Filter Lab</button>
+                            <button class="tab-btn hidden" id="evalTabBtn" onclick="switchViewerTab('eval')">🎯 Ground Truth</button>
+                        </div>
+                    </div>
+
+                    <div class="viewer-grid" id="quadView">
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>(a) Input CT Slice</span>
+                                <span style="font-size: 11px; color: var(--text-muted); font-family:'JetBrains Mono';">256 × 256 Gray</span>
+                            </div>
+                            <div class="viewer-img-container" id="containerCT" onmousemove="inspectPixel(event, 'imgCT')" onmouseleave="hideHUD()">
+                                <div class="scanner-sweep hidden" id="scanSweep"></div>
+                                <img id="imgCT" src="" alt="Input CT" class="hidden">
+                                <span class="placeholder-text" id="phCT">Select or upload a slice</span>
+                                <div class="pixel-inspector-hud hidden" id="pixelHUD">X: 0 Y: 0 | 256×256</div>
+                            </div>
+                        </div>
+
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>(b) 8-Class Noise Mask</span>
+                                <span style="font-size: 11px; color: #38bdf8; font-weight:700;">Argmax Pixel Map</span>
+                            </div>
+                            <div class="viewer-img-container" id="containerNoiseMap">
+                                <img id="imgNoiseMap" src="" alt="Noise Map" class="hidden">
+                                <span class="placeholder-text" id="phNoiseMap">Awaiting inference...</span>
+                            </div>
+                        </div>
+
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>(c) CT + Noise Overlay</span>
+                                <span style="font-size: 11px; color: #c084fc; font-weight:700;">Alpha Blended</span>
+                            </div>
+                            <div class="viewer-img-container" id="containerOverlay">
+                                <img id="imgOverlay" src="" alt="Overlay" class="hidden">
+                                <span class="placeholder-text" id="phOverlay">Awaiting inference...</span>
+                            </div>
+                        </div>
+
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>(d) Confidence Heatmap</span>
+                                <span style="font-size: 11px; color: #fbbf24; font-weight:700;">Softmax Peak</span>
+                            </div>
+                            <div class="viewer-img-container" id="containerConfidence">
+                                <img id="imgConfidence" src="" alt="Confidence Heatmap" class="hidden">
+                                <span class="placeholder-text" id="phConfidence">Awaiting inference...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hidden" id="curtainView">
+                        <div class="split-curtain-container" id="curtainContainer" onmousemove="handleCurtainDrag(event)" onmousedown="startCurtainDrag(event)" onmouseup="stopCurtainDrag()">
+                            <span class="curtain-label left">Overlay Segmentation</span>
+                            <span class="curtain-label right">Original CT</span>
+                            <img id="curtainImgCT" class="curtain-img" src="" alt="Original CT">
+                            <div class="curtain-overlay-wrapper" id="curtainWrapper">
+                                <img id="curtainImgOverlay" src="" alt="Segmented Overlay">
+                            </div>
+                            <div class="curtain-handle" id="curtainHandle">↔</div>
+                        </div>
+                    </div>
+
+                    <div class="viewer-grid hidden" id="bboxView">
+                        <div class="viewer-card">
+                            <div class="viewer-header"><span>📦 Bounding Boxes</span></div>
+                            <div class="viewer-img-container"><img id="imgBbox" src="" alt="BBox" class="hidden"><span class="placeholder-text" id="phBbox">Awaiting inference...</span></div>
+                        </div>
+                        <div class="viewer-card">
+                            <div class="viewer-header"><span>✨ Hybrid CADx</span></div>
+                            <div class="viewer-img-container"><img id="imgHybrid" src="" alt="Hybrid" class="hidden"><span class="placeholder-text" id="phHybrid">Awaiting inference...</span></div>
+                        </div>
+                    </div>
+
+                    <div class="viewer-grid hidden" id="filterLabView">
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>🧪 Filter Simulator</span>
+                                <div class="preset-pill-group">
+                                    <button class="preset-pill active" onclick="applyLabFilter('median')">Median</button>
+                                    <button class="preset-pill" onclick="applyLabFilter('gaussian')">Gaussian</button>
+                                    <button class="preset-pill" onclick="applyLabFilter('sharpen')">Sharpen</button>
+                                    <button class="preset-pill" onclick="applyLabFilter('none')">Reset</button>
+                                </div>
+                            </div>
+                            <div class="viewer-img-container"><canvas id="filterCanvas" width="256" height="256" style="width:100%; height:100%;"></canvas></div>
+                        </div>
+                        <div class="viewer-card">
+                            <div class="viewer-header"><span>📋 Clinical Protocols</span></div>
+                            <div style="padding:14px; overflow-y:auto; max-height:280px; font-size:12px;" id="protocolContainer">Awaiting inference...</div>
+                        </div>
+                    </div>
+
+                    <div class="viewer-grid hidden" id="evalView">
+                        <div class="viewer-card">
+                            <div class="viewer-header"><span>Ground Truth Target</span></div>
+                            <div class="viewer-img-container"><img id="imgGT" src="" alt="GT" class="hidden"><span class="placeholder-text" id="phGT">Test slices only</span></div>
+                        </div>
+                        <div class="viewer-card">
+                            <div class="viewer-header"><span>Mismatch Error Map</span></div>
+                            <div class="viewer-img-container"><img id="imgError" src="" alt="Error" class="hidden"><span class="placeholder-text" id="phError">Awaiting evaluation...</span></div>
+                        </div>
+                    </div>
+
+                    <div class="metrics-container" id="metricsSection" style="display: none;">
+                        <div class="metrics-card">
+                            <div class="section-title"><span class="icon-label">⚡ Clinical Metrics</span></div>
+                            <div class="stat-grid">
+                                <div class="stat-box"><div class="stat-val" id="statLatency">0 ms</div><div class="stat-lbl">Latency</div></div>
+                                <div class="stat-box"><div class="stat-val emerald" id="statConfidence">0%</div><div class="stat-lbl">Confidence</div></div>
+                                <div class="stat-box"><div class="stat-val amber" id="statNoisePct">0%</div><div class="stat-lbl">Noise Area</div></div>
+                                <div class="stat-box"><div class="stat-val rose" id="statAccuracy">N/A</div><div class="stat-lbl">Accuracy</div></div>
+                            </div>
+                            <div class="grade-banner" id="gradeBanner">
+                                <div><div class="grade-title" id="gradeTitle">Quality Grade: Calculating...</div><div class="grade-desc" id="gradeDesc">Assessment pending.</div></div>
+                            </div>
+                            <div class="bbox-table-container">
+                                <table class="bbox-table">
+                                    <thead><tr><th>#</th><th>Noise Class</th><th>ROI [X,Y,W,H]</th><th>Area</th><th>Conf</th></tr></thead>
+                                    <tbody id="bboxTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="metrics-card">
+                            <div class="section-title"><span class="icon-label">📊 Spatial Noise Distribution</span></div>
+                            <div class="class-bar-list" id="classBars"></div>
+                        </div>
+                    </div>
+
+                    <div class="actions-row" id="actionsRow" style="display: none;">
+                        <button class="btn-action highlight-btn" onclick="openReportModal()">📄 Radiologist Report (PDF)</button>
+                        <button class="btn-action" onclick="downloadJSONReport()">Download JSON</button>
+                        <button class="btn-action" onclick="downloadCSVReport()">Download CSV</button>
+                        <a id="btnDownloadMask" class="btn-action" href="#" download>Predicted Mask (.npy)</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: RESUME PORTFOLIO -->
+        <section class="view-section" id="section-resume">
+            <div class="doc-section-card">
+                <div class="doc-title"><span>💼 Full-Stack Developer & AI Software Engineer Showcase</span></div>
+                <div class="doc-subtitle">Technical architecture, cloud hosting design for Vercel + Render free tiers, and STAR-formatted resume bullet points.</div>
+
+                <div class="feature-grid">
+                    <div class="feature-box">
+                        <h4>🌐 Decoupled Architecture</h4>
+                        <p>Vercel Edge-hosted Vanilla JS SPA with responsive glassmorphism UI communicating with a Render-hosted PyTorch Flask API backend.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4>⚡ Free Tier Cloud Budgeting</h4>
+                        <p>Optimized PyTorch slug size with CPU wheels and single-worker gunicorn execution, operating reliably within Render's 512MB RAM free ceiling.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4>📊 OpenAPI 3.0 Integration</h4>
+                        <p>Standardized REST endpoints with CORS support, dynamic base URL resolution, and interactive sandbox testing.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: API EXPLORER -->
+        <section class="view-section" id="section-api">
+            <div class="doc-section-card">
+                <div class="doc-title"><span>⚡ Interactive REST API Explorer</span></div>
+                <div class="doc-subtitle">Test backend endpoints directly in the browser across localhost or cloud Render endpoints.</div>
+
+                <div class="api-tester-card">
+                    <div class="api-tester-header">
+                        <div class="api-endpoint-label"><span class="method-badge method-get">GET</span><span>/api/v1/health</span></div>
+                        <button class="btn-try-api" onclick="executeAPICall('/api/v1/health', 'GET', 'res-health')">Send Request</button>
+                    </div>
+                    <div class="code-snippet-box" id="res-health" style="max-height: 160px;">Click "Send Request" to test endpoint...</div>
+                </div>
+
+                <div class="api-tester-card">
+                    <div class="api-tester-header">
+                        <div class="api-endpoint-label"><span class="method-badge method-get">GET</span><span>/api/v1/system-info</span></div>
+                        <button class="btn-try-api" onclick="executeAPICall('/api/v1/system-info', 'GET', 'res-sysinfo')">Send Request</button>
+                    </div>
+                    <div class="code-snippet-box" id="res-sysinfo" style="max-height: 180px;">Click "Send Request" to test endpoint...</div>
+                </div>
+
+                <div class="api-tester-card">
+                    <div class="api-tester-header">
+                        <div class="api-endpoint-label"><span class="method-badge method-get">GET</span><span>/api/v1/metrics</span></div>
+                        <button class="btn-try-api" onclick="executeAPICall('/api/v1/metrics', 'GET', 'res-metrics')">Send Request</button>
+                    </div>
+                    <div class="code-snippet-box" id="res-metrics" style="max-height: 160px;">Click "Send Request" to test endpoint...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: ARCHITECTURE -->
+        <section class="view-section" id="section-architecture">
+            <div class="doc-section-card">
+                <div class="doc-title"><span>🧬 5-Level Nested U-Net (UNet++) Architecture</span></div>
+                <div class="doc-subtitle">Dense skip pathways and multi-scale deep supervision on 35,820 LoDoPaB-CT lung slices.</div>
+            </div>
+        </section>
+
+        <!-- SECTION 5: GUIDE -->
+        <section class="view-section" id="section-guide">
+            <div class="doc-section-card">
+                <div class="doc-title"><span>💻 Local & Cloud Deployment Guide (Vercel + Render)</span></div>
+                <div class="doc-subtitle">Instructions to host the frontend on Vercel and backend on Render within free tier limits.</div>
+
+                <div class="feature-grid">
+                    <div class="feature-box">
+                        <h4>1. Deploy Backend to Render (Free Tier)</h4>
+                        <p>1. Connect GitHub repo to <strong>Render.com</strong>.<br>2. Select <strong>Web Service</strong>.<br>3. Build Command: <code>pip install -r requirements.txt</code><br>4. Start Command: <code>gunicorn --workers 1 --threads 2 --timeout 120 app:app</code></p>
+                    </div>
+                    <div class="feature-box">
+                        <h4>2. Deploy Frontend to Vercel (Free Tier)</h4>
+                        <p>1. Connect repo to <strong>Vercel.com</strong>.<br>2. Set Root Directory to <code>frontend/</code> or root.<br>3. Paste your Render backend URL into the top gateway configuration bar.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 6: BENCHMARKS -->
+        <section class="view-section" id="section-benchmarks">
+            <div class="doc-section-card">
+                <div class="doc-title"><span>📊 Validation Benchmarks (96.65% mIoU)</span></div>
+                <div class="doc-subtitle">Class-by-class evaluation metrics across 8 noise categories.</div>
+            </div>
+        </section>
+
+        <!-- SECTION 7: NOISE TAXONOMY -->
+        <section class="view-section" id="section-protocols">
+            <div class="doc-section-card">
+                <div class="doc-title"><span>🛡️ Noise Pathology Taxonomy & Protocols</span></div>
+                <div class="doc-subtitle">Radiology reference handbook detailing physical equipment root causes and filter prescriptions.</div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Diagnostic Report Modal -->
+    <div class="modal-backdrop" id="reportModalBackdrop" onclick="handleBackdropClick(event)">
+        <div class="report-modal" id="reportModalContent">
+            <div class="modal-topbar">
+                <h3>LungCT AI Diagnostic & Noise Restoration Clinical Sheet</h3>
+                <button class="btn-action" onclick="closeReportModal()">✕</button>
+            </div>
+            <div class="modal-body" id="printableReportBody">
+                <div class="report-header-card">
+                    <div><strong>Scan Identification:</strong><br><span id="repScanId" style="font-family:'JetBrains Mono'; color:#38bdf8;">N/A</span></div>
+                    <div><strong>Diagnostic Timestamp:</strong><br><span id="repDate">N/A</span></div>
+                    <div><strong>Architecture / Checkpoint:</strong><br><span>UNet++ (Epoch 84 • 96.65% mIoU)</span></div>
+                    <div><strong>Quality Grade:</strong><br><span id="repQualityGrade" style="font-weight:700; color:#10b981;">N/A</span></div>
+                    <div><strong>Dominant Noise:</strong><br><span id="repDominantNoise">N/A</span></div>
+                    <div><strong>Confidence:</strong><br><span id="repConfidence" style="font-family:'JetBrains Mono';">N/A</span></div>
+                </div>
+                <div>
+                    <h4 style="font-size: 12.5px; font-weight: 800; margin-bottom: 8px; color: #38bdf8;">Diagnostic Multi-View</h4>
+                    <div class="report-grid-preview">
+                        <div class="report-thumb-card"><img id="repImgCT" src="" alt="CT"><div class="report-thumb-title">Input CT</div></div>
+                        <div class="report-thumb-card"><img id="repImgNoiseMap" src="" alt="Noise"><div class="report-thumb-title">8-Class Map</div></div>
+                        <div class="report-thumb-card"><img id="repImgOverlay" src="" alt="Overlay"><div class="report-thumb-title">Overlay</div></div>
+                        <div class="report-thumb-card"><img id="repImgConf" src="" alt="Conf"><div class="report-thumb-title">Confidence</div></div>
+                        <div class="report-thumb-card"><img id="repImgBbox" src="" alt="BBox"><div class="report-thumb-title">Bounding Boxes</div></div>
+                        <div class="report-thumb-card"><img id="repImgHybrid" src="" alt="Hybrid"><div class="report-thumb-title">Hybrid CADx</div></div>
+                    </div>
+                </div>
+                <div style="background: rgba(30, 41, 59, 0.5); border-radius: 10px; padding: 12px;">
+                    <h4 style="font-size: 12px; font-weight: 800; color: #38bdf8;">🛠️ Prescribed Restoration Formulation</h4>
+                    <div id="repProtocolsList" style="font-size: 11.5px; margin-top: 4px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-action highlight-btn" onclick="window.print()">Print / Save PDF</button>
+                <button class="btn-action" onclick="downloadJSONReport()">Download JSON</button>
+                <button class="btn-action" onclick="downloadCSVReport()">Download CSV</button>
+                <button class="btn-action" onclick="closeReportModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        let selectedSample = null;
+        let selectedFile = null;
+        let currentPredictionData = null;
+        let classColorMap = {};
+        let activeClassFilter = [0, 1, 2, 3, 4, 5, 6, 7];
+        let minBoxConfidence = 60;
+        let isDraggingCurtain = false;
+
+        const CLASS_DEFINITIONS = [
+            { id: 0, name: "Clean", color: [30, 30, 30] },
+            { id: 1, name: "Gaussian", color: [230, 25, 75] },
+            { id: 2, name: "Salt & Pepper", color: [60, 180, 75] },
+            { id: 3, name: "Speckle", color: [255, 225, 25] },
+            { id: 4, name: "Poisson", color: [0, 130, 200] },
+            { id: 5, name: "Quantization", color: [245, 130, 48] },
+            { id: 6, name: "RVIN", color: [145, 30, 180] },
+            { id: 7, name: "Periodic Digital", color: [70, 240, 240] }
+        ];
+
+        function getBackendUrl(path) {
+            return window.API_CONFIG ? window.API_CONFIG.getUrl(path) : path;
+        }
+
+        function saveApiUrl(val) {
+            if (window.API_CONFIG) {
+                window.API_CONFIG.setBaseUrl(val);
+                testBackendConnection();
+                fetchSamples();
+            }
+        }
+
+        async function testBackendConnection() {
+            const pill = document.getElementById('backendStatusPill');
+            pill.innerText = 'PINGING...';
+            pill.style.background = 'rgba(245, 158, 11, 0.2)';
+            pill.style.color = '#fbbf24';
+
+            try {
+                const res = await fetch(getBackendUrl('/api/v1/health'));
+                const json = await res.json();
+                if (json.status === 'healthy') {
+                    pill.innerText = `ONLINE (${json.device.toUpperCase()})`;
+                    pill.style.background = 'rgba(16, 185, 129, 0.2)';
+                    pill.style.color = '#34d399';
+                    showToast("Connected to Backend API Gateway!");
+                } else {
+                    pill.innerText = 'DEGRADED';
+                }
+            } catch (err) {
+                pill.innerText = 'OFFLINE / CORS BLOCKED';
+                pill.style.background = 'rgba(244, 63, 94, 0.2)';
+                pill.style.color = '#fb7185';
+                showToast("Cannot reach backend. Check URL or CORS.");
+            }
+        }
+
+        function switchNavTab(tabKey) {
+            document.querySelectorAll('.nav-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+
+            const targetBtn = document.getElementById(`navBtn-${tabKey}`);
+            const targetSec = document.getElementById(`section-${tabKey}`);
+            if (targetBtn) targetBtn.classList.add('active');
+            if (targetSec) targetSec.classList.add('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function executeAPICall(endpoint, method, resultBoxId) {
+            const resultBox = document.getElementById(resultBoxId);
+            resultBox.innerText = `[${method}] Calling ${getBackendUrl(endpoint)}...`;
+            const startTime = performance.now();
+
+            try {
+                const res = await fetch(getBackendUrl(endpoint), { method: method });
+                const json = await res.json();
+                const latency = (performance.now() - startTime).toFixed(1);
+                resultBox.innerText = `HTTP ${res.status} OK (${latency} ms)\n\n` + JSON.stringify(json, null, 2);
+                showToast(`API: ${endpoint} responded in ${latency} ms`);
+            } catch (err) {
+                resultBox.innerText = `Error: ${err.message}`;
+                showToast(`API call failed: ${err.message}`);
+            }
+        }
+
+        function renderLegend() {
+            const container = document.getElementById('legendContainer');
+            container.innerHTML = '';
+            CLASS_DEFINITIONS.forEach(cls => {
+                const rgb = `rgb(${cls.color[0]}, ${cls.color[1]}, ${cls.color[2]})`;
+                classColorMap[cls.id] = rgb;
+                const div = document.createElement('div');
+                div.className = 'legend-item';
+                div.innerHTML = `<div class="color-chip" style="background:${rgb};"></div><span>${cls.id}: ${cls.name}</span>`;
+                container.appendChild(div);
+            });
+        }
+
+        async function fetchSamples() {
+            try {
+                const res = await fetch(getBackendUrl('/api/v1/samples'));
+                const data = await res.json();
+                const gallery = document.getElementById('sampleGallery');
+                gallery.innerHTML = '';
+
+                data.samples.forEach((sample, idx) => {
+                    const card = document.createElement('div');
+                    card.className = `sample-card ${idx === 0 ? 'active' : ''}`;
+                    card.innerHTML = `<div class="sample-name">${sample.filename}</div><div class="sample-tag">${sample.has_gt ? 'Has GT' : 'Test Slice'}</div>`;
+                    card.onclick = () => selectSampleCard(card, sample.filename);
+                    gallery.appendChild(card);
+
+                    if (idx === 0) selectedSample = sample.filename;
+                });
+
+                if (selectedSample) executePrediction();
+            } catch (err) {
+                console.error("Failed to load samples:", err);
+            }
+        }
+
+        function selectSampleCard(cardElement, filename) {
+            document.querySelectorAll('.sample-card').forEach(c => c.classList.remove('active'));
+            cardElement.classList.add('active');
+            selectedSample = filename;
+            selectedFile = null;
+            document.getElementById('selectedFileInfo').style.display = 'none';
+            executePrediction();
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                selectedSample = null;
+                document.querySelectorAll('.sample-card').forEach(c => c.classList.remove('active'));
+                const fileInfo = document.getElementById('selectedFileInfo');
+                fileInfo.innerText = `Selected: ${file.name}`;
+                fileInfo.style.display = 'block';
+                showToast(`Loaded ${file.name}`);
+                executePrediction();
+            }
+        }
+
+        function switchViewerTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('quadView').classList.add('hidden');
+            document.getElementById('curtainView').classList.add('hidden');
+            document.getElementById('bboxView').classList.add('hidden');
+            document.getElementById('filterLabView').classList.add('hidden');
+            document.getElementById('evalView').classList.add('hidden');
+
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            if (tabName === 'quad') { tabButtons[0].classList.add('active'); document.getElementById('quadView').classList.remove('hidden'); }
+            else if (tabName === 'curtain') { tabButtons[1].classList.add('active'); document.getElementById('curtainView').classList.remove('hidden'); }
+            else if (tabName === 'bbox') { tabButtons[2].classList.add('active'); document.getElementById('bboxView').classList.remove('hidden'); }
+            else if (tabName === 'filterlab') { tabButtons[3].classList.add('active'); document.getElementById('filterLabView').classList.remove('hidden'); initFilterCanvas(); }
+            else { tabButtons[4].classList.add('active'); document.getElementById('evalView').classList.remove('hidden'); }
+        }
+
+        async function executePrediction() {
+            const btn = document.getElementById('predictBtn');
+            const btnText = document.getElementById('btnText');
+            const spinner = document.getElementById('btnSpinner');
+            const scanSweep = document.getElementById('scanSweep');
+
+            btn.disabled = true;
+            btnText.innerText = 'Analyzing Neural Features...';
+            spinner.classList.remove('hidden');
+            if (scanSweep) scanSweep.classList.remove('hidden');
+
+            const formData = new FormData();
+            if (selectedFile) formData.append('file', selectedFile);
+            else if (selectedSample) formData.append('sample_filename', selectedSample);
+            else {
+                alert("Please select or upload a CT slice.");
+                btn.disabled = false;
+                btnText.innerText = '⚡ Run UNet++ Neural Inference';
+                spinner.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(getBackendUrl('/api/v1/predict'), { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.error) { alert("Error: " + data.error); return; }
+
+                currentPredictionData = data;
+
+                setImage('imgCT', 'phCT', data.ct_image_b64);
+                setImage('imgNoiseMap', 'phNoiseMap', data.noise_map_b64);
+                setImage('imgOverlay', 'phOverlay', data.overlay_b64);
+                setImage('imgConfidence', 'phConfidence', data.confidence_b64);
+
+                const curtainCT = document.getElementById('curtainImgCT');
+                const curtainOverlay = document.getElementById('curtainImgOverlay');
+                if (data.ct_image_b64) curtainCT.src = data.ct_image_b64;
+                if (data.overlay_b64) curtainOverlay.src = data.overlay_b64;
+
+                setImage('imgBbox', 'phBbox', data.bbox_b64);
+                setImage('imgHybrid', 'phHybrid', data.hybrid_b64);
+
+                if (data.gt_stats) {
+                    setImage('imgGT', 'phGT', data.gt_stats.gt_mask_b64);
+                    setImage('imgError', 'phError', data.gt_stats.error_map_b64);
+                    document.getElementById('statAccuracy').innerText = `${data.gt_stats.pixel_accuracy}%`;
+                    document.getElementById('evalTabBtn').classList.remove('hidden');
+                } else {
+                    document.getElementById('statAccuracy').innerText = 'N/A';
+                    document.getElementById('evalTabBtn').classList.add('hidden');
+                }
+
+                document.getElementById('statLatency').innerText = `${data.inference_ms} ms`;
+                document.getElementById('statConfidence').innerText = `${data.mean_confidence}%`;
+                document.getElementById('statNoisePct').innerText = `${data.total_noise_pct}%`;
+                document.getElementById('gradeTitle').innerText = `Quality Grade: ${data.quality_grade || 'Grade A'}`;
+                document.getElementById('gradeDesc').innerText = data.quality_summary || 'Diagnosis ready.';
+
+                renderBBoxTable(data.bounding_boxes);
+                renderClassBars(data.class_stats);
+                renderFilterLabProtocols(data.restoration_protocols);
+
+                document.getElementById('btnDownloadMask').href = getBackendUrl(data.download_mask_url);
+                document.getElementById('metricsSection').style.display = 'grid';
+                document.getElementById('actionsRow').style.display = 'flex';
+                document.getElementById('resultTitle').innerText = `Diagnosis: ${data.filename}`;
+
+                showToast(`Inference completed in ${data.inference_ms} ms`);
+            } catch (err) {
+                showToast("Inference failed. Check backend connection.");
+            } finally {
+                btn.disabled = false;
+                btnText.innerText = '⚡ Run UNet++ Neural Inference';
+                spinner.classList.add('hidden');
+                if (scanSweep) scanSweep.classList.add('hidden');
+            }
+        }
+
+        function setImage(imgId, phId, b64) {
+            const img = document.getElementById(imgId);
+            const ph = document.getElementById(phId);
+            if (b64) { img.src = b64; img.classList.remove('hidden'); if (ph) ph.classList.add('hidden'); }
+            else { img.classList.add('hidden'); if (ph) ph.classList.remove('hidden'); }
+        }
+
+        function renderBBoxTable(boxes) {
+            const tbody = document.getElementById('bboxTableBody');
+            tbody.innerHTML = '';
+            (boxes || []).forEach(b => {
+                const rgb = `rgb(${b.color[0]}, ${b.color[1]}, ${b.color[2]})`;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${b.id}</td><td><span style="display:inline-block; width:8px; height:8px; border-radius:3px; background:${rgb}; margin-right:5px;"></span>${b.class_name}</td><td style="font-family:'JetBrains Mono';">[${b.box.join(', ')}]</td><td style="font-family:'JetBrains Mono';">${b.area_pixels} (${b.area_percentage}%)</td><td style="color:#10b981; font-weight:700;">${b.confidence}%</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderClassBars(stats) {
+            const barContainer = document.getElementById('classBars');
+            barContainer.innerHTML = '';
+            (stats || []).forEach(s => {
+                const rgb = `rgb(${s.color[0]}, ${s.color[1]}, ${s.color[2]})`;
+                const row = document.createElement('div');
+                row.className = 'class-bar-row';
+                row.innerHTML = `<div class="class-bar-name"><span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:${rgb}; margin-right:4px;"></span>${s.name}</div><div class="class-bar-track"><div class="class-bar-fill" style="width:${s.percentage}%; background:${rgb};"></div></div><div class="class-bar-pct" style="color:${s.percentage > 0 ? '#38bdf8' : '#64748b'};">${s.percentage}%</div>`;
+                barContainer.appendChild(row);
+            });
+        }
+
+        function renderFilterLabProtocols(protocols) {
+            const container = document.getElementById('protocolContainer');
+            if (!protocols || protocols.length === 0) { container.innerHTML = '<p style="color:#34d399; font-weight:700;">✨ Optimal Quality. No filters required.</p>'; return; }
+            container.innerHTML = '';
+            protocols.forEach(p => {
+                const box = document.createElement('div');
+                box.style.background = 'rgba(30, 41, 59, 0.7)'; box.style.borderRadius = '8px'; box.style.padding = '8px'; box.style.marginBottom = '6px';
+                box.innerHTML = `<div style="font-weight:700; color:#38bdf8;">${p.noise_type} (${p.area_percentage}%)</div><div style="font-size:11px; color:#cbd5e1;"><strong>Filter:</strong> ${p.recommended_filter}</div><div style="font-size:10.5px; color:#94a3b8; font-family:'JetBrains Mono';">${p.protocol}</div>`;
+                container.appendChild(box);
+            });
+        }
+
+        function inspectPixel(event, imgId) {
+            const hud = document.getElementById('pixelHUD');
+            const img = document.getElementById(imgId);
+            if (!img || img.classList.contains('hidden')) return;
+            const rect = img.getBoundingClientRect();
+            const x = Math.floor(((event.clientX - rect.left) / rect.width) * 256);
+            const y = Math.floor(((event.clientY - rect.top) / rect.height) * 256);
+            if (x >= 0 && x < 256 && y >= 0 && y < 256) {
+                hud.innerText = `X: ${x} Y: ${y} | 256×256`;
+                hud.classList.remove('hidden');
+            }
+        }
+        function hideHUD() { const hud = document.getElementById('pixelHUD'); if (hud) hud.classList.add('hidden'); }
+
+        function startCurtainDrag(event) { isDraggingCurtain = true; handleCurtainDrag(event); }
+        function stopCurtainDrag() { isDraggingCurtain = false; }
+        function handleCurtainDrag(event) {
+            if (!isDraggingCurtain && event.buttons !== 1) return;
+            const container = document.getElementById('curtainContainer');
+            const wrapper = document.getElementById('curtainWrapper');
+            const handle = document.getElementById('curtainHandle');
+            const rect = container.getBoundingClientRect();
+            let posX = Math.max(0, Math.min(event.clientX - rect.left, rect.width));
+            const pct = (posX / rect.width) * 100;
+            wrapper.style.width = `${pct}%`;
+            handle.style.left = `${pct}%`;
+        }
+
+        function initFilterCanvas() {
+            const canvas = document.getElementById('filterCanvas');
+            const ctx = canvas.getContext('2d');
+            const img = document.getElementById('imgCT');
+            if (img && !img.classList.contains('hidden')) ctx.drawImage(img, 0, 0, 256, 256);
+        }
+
+        function applyLabFilter(type) {
+            const canvas = document.getElementById('filterCanvas');
+            const ctx = canvas.getContext('2d');
+            const img = document.getElementById('imgCT');
+            if (!img || img.classList.contains('hidden')) return;
+            ctx.drawImage(img, 0, 0, 256, 256);
+            const imgData = ctx.getImageData(0, 0, 256, 256);
+            const d = imgData.data;
+
+            if (type === 'gaussian') {
+                for (let i = 0; i < d.length; i += 4) { const avg = (d[i] + (d[i+4] || d[i]) + (d[i-4] || d[i])) / 3; d[i] = avg; d[i+1] = avg; d[i+2] = avg; }
+                ctx.putImageData(imgData, 0, 0); showToast("Simulated Gaussian Blur");
+            } else if (type === 'sharpen') {
+                for (let i = 0; i < d.length; i += 4) { const val = Math.min(255, Math.max(0, d[i] * 1.3 - 20)); d[i] = val; d[i+1] = val; d[i+2] = val; }
+                ctx.putImageData(imgData, 0, 0); showToast("Applied Sharpening");
+            } else { ctx.drawImage(img, 0, 0, 256, 256); showToast("Reset Filter Canvas"); }
+        }
+
+        function openReportModal() {
+            if (!currentPredictionData) { showToast("Run inference first to generate report."); return; }
+            const data = currentPredictionData;
+            document.getElementById('repScanId').innerText = data.filename || 'CT_001';
+            document.getElementById('repDate').innerText = new Date().toLocaleString();
+            document.getElementById('repQualityGrade').innerText = data.quality_grade || 'Grade A';
+            document.getElementById('repDominantNoise').innerText = data.dominant_noise || 'None';
+            document.getElementById('repConfidence').innerText = `${data.mean_confidence}%`;
+
+            document.getElementById('repImgCT').src = data.ct_image_b64;
+            document.getElementById('repImgNoiseMap').src = data.noise_map_b64;
+            document.getElementById('repImgOverlay').src = data.overlay_b64;
+            document.getElementById('repImgConf').src = data.confidence_b64;
+            document.getElementById('repImgBbox').src = data.bbox_b64;
+            document.getElementById('repImgHybrid').src = data.hybrid_b64;
+
+            const protoList = document.getElementById('repProtocolsList');
+            protoList.innerHTML = '';
+            (data.restoration_protocols || []).forEach(p => {
+                const item = document.createElement('div');
+                item.innerHTML = `<strong>• ${p.noise_type}:</strong> ${p.recommended_filter} (${p.protocol})`;
+                protoList.appendChild(item);
+            });
+            document.getElementById('reportModalBackdrop').classList.add('active');
+        }
+
+        function closeReportModal() { document.getElementById('reportModalBackdrop').classList.remove('active'); }
+        function handleBackdropClick(event) { if (event.target.id === 'reportModalBackdrop') closeReportModal(); }
+
+        function downloadJSONReport() {
+            if (!currentPredictionData) return;
+            const blob = new Blob([JSON.stringify(currentPredictionData, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'diagnosis_report.json'; a.click();
+        }
+
+        function downloadCSVReport() {
+            if (!currentPredictionData) return;
+            let csv = "Class_ID,Noise_Type,Pixel_Count,Percentage\n";
+            (currentPredictionData.class_stats || []).forEach(s => { csv += `${s.class_id},"${s.name}",${s.pixels},${s.percentage}\n`; });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'diagnosis_stats.csv'; a.click();
+        }
+
+        function copyCode(btn) {
+            const text = btn.parentElement.innerText.replace('Copy', '').trim();
+            navigator.clipboard.writeText(text); btn.innerText = 'Copied!'; setTimeout(() => { btn.innerText = 'Copy'; }, 2000);
+        }
+
+        function showToast(msg) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerText = msg;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        const dropZone = document.getElementById('dropZone');
+        ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, (ev) => { ev.preventDefault(); dropZone.classList.add('dragover'); }, false));
+        ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, (ev) => { ev.preventDefault(); dropZone.classList.remove('dragover'); }, false));
+        dropZone.addEventListener('drop', (ev) => {
+            ev.preventDefault(); dropZone.classList.remove('dragover');
+            if (ev.dataTransfer.files.length > 0) {
+                document.getElementById('fileInput').files = ev.dataTransfer.files;
+                handleFileUpload({ target: { files: ev.dataTransfer.files } });
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderLegend();
+            if (window.API_CONFIG) {
+                document.getElementById('apiBaseUrlInput').value = window.API_CONFIG.getBaseUrl();
+            }
+            testBackendConnection();
+            fetchSamples();
+        });
+    </script>
+</body>
+</html>
