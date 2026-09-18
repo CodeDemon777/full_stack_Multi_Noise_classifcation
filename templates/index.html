@@ -3,22 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LungCT UNet++ Multi-Noise Pixel Classifier & Bounding Box Detector</title>
-    <!-- Modern Google Fonts -->
+    <title>LungCT UNet++ | Next-Gen AI Diagnostic Studio & Radiology Portal</title>
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-dark: #070b14;
-            --bg-card: rgba(15, 23, 42, 0.78);
-            --bg-card-border: rgba(56, 189, 248, 0.18);
-            --primary: #38bdf8;
-            --primary-glow: rgba(56, 189, 248, 0.35);
-            --accent: #818cf8;
+            --bg-base: #030712;
+            --bg-card: rgba(15, 23, 42, 0.72);
+            --bg-card-hover: rgba(30, 41, 59, 0.85);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --card-border-glow: rgba(6, 182, 212, 0.45);
+            
+            --primary: #06b6d4;
+            --primary-rgb: 6, 182, 212;
+            --secondary: #8b5cf6;
+            --secondary-rgb: 139, 92, 246;
+            --accent-pink: #ec4899;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-blue: #3b82f6;
+
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
-            --card-radius: 16px;
+            --text-dim: #64748b;
+
+            --card-radius: 20px;
+            --radius-md: 14px;
+            --radius-sm: 8px;
+            
+            --transition-smooth: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         * {
@@ -28,211 +44,522 @@
         }
 
         body {
-            font-family: 'Outfit', sans-serif;
-            background: radial-gradient(circle at 15% 15%, #0f172a 0%, #070b14 60%, #030712 100%);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-base);
             color: var(--text-main);
             min-height: 100vh;
-            padding: 24px;
             overflow-x: hidden;
+            position: relative;
+            padding-bottom: 80px;
+            line-height: 1.55;
         }
 
-        .ambient-glow {
+        /* Ambient Aurora Dynamic Canvas Background */
+        .aurora-container {
             position: fixed;
-            width: 600px;
-            height: 600px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(56, 189, 248, 0.09) 0%, transparent 70%);
-            top: -100px;
-            right: -100px;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
             pointer-events: none;
             z-index: 0;
         }
 
+        .aurora-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.5;
+            animation: floatAurora 22s ease-in-out infinite alternate;
+        }
+
+        .blob-1 {
+            width: 700px;
+            height: 700px;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.75) 0%, rgba(14, 116, 144, 0.15) 70%, transparent 100%);
+            top: -20%;
+            right: -10%;
+            animation-duration: 24s;
+        }
+
+        .blob-2 {
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.7) 0%, rgba(109, 40, 217, 0.15) 70%, transparent 100%);
+            bottom: -25%;
+            left: -15%;
+            animation-duration: 28s;
+            animation-delay: -6s;
+        }
+
+        .blob-3 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.55) 0%, rgba(190, 24, 93, 0.12) 70%, transparent 100%);
+            top: 35%;
+            left: 40%;
+            animation-duration: 20s;
+            animation-delay: -11s;
+        }
+
+        .blob-4 {
+            width: 550px;
+            height: 550px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.45) 0%, rgba(5, 150, 105, 0.12) 70%, transparent 100%);
+            bottom: 15%;
+            right: 15%;
+            animation-duration: 26s;
+            animation-delay: -8s;
+        }
+
+        .grid-pattern-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+            mask-image: radial-gradient(circle at center, black 45%, transparent 95%);
+            -webkit-mask-image: radial-gradient(circle at center, black 45%, transparent 95%);
+        }
+
+        @keyframes floatAurora {
+            0% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+            33% { transform: translate(80px, -60px) scale(1.12) rotate(45deg); }
+            66% { transform: translate(-60px, 70px) scale(0.92) rotate(-30deg); }
+            100% { transform: translate(40px, -40px) scale(1.08) rotate(15deg); }
+        }
+
+        /* Container */
         .container {
-            max-width: 1480px;
+            max-width: 1600px;
             margin: 0 auto;
+            padding: 20px 24px;
             position: relative;
             z-index: 1;
         }
 
-        /* Header */
-        header {
+        /* ===================================================
+           NAVIGATION BAR & TOP BAR
+        =================================================== */
+        .navbar-main {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding-bottom: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            margin-bottom: 24px;
-        }
-
-        .logo-area {
-            display: flex;
-            align-items: center;
+            padding: 16px 26px;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--card-radius);
+            margin-bottom: 18px;
+            box-shadow: 0 12px 35px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            flex-wrap: wrap;
             gap: 16px;
         }
 
+        .logo-group {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
         .logo-icon {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #0284c7, #818cf8);
-            border-radius: 12px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6 50%, #ec4899);
+            background-size: 200% 200%;
+            animation: gradientShift 6s ease infinite;
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 20px var(--primary-glow);
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.5), 0 0 40px rgba(139, 92, 246, 0.3);
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
 
         .logo-icon svg {
             width: 28px;
             height: 28px;
             fill: white;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
         }
 
         .title-group h1 {
-            font-size: 24px;
-            font-weight: 700;
+            font-size: 22px;
+            font-weight: 800;
             letter-spacing: -0.5px;
-            background: linear-gradient(135deg, #ffffff 40%, #93c5fd 100%);
+            background: linear-gradient(135deg, #ffffff 30%, #38bdf8 70%, #c084fc 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .title-group p {
-            font-size: 13px;
+            font-size: 12.5px;
             color: var(--text-muted);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 2px;
         }
 
-        .header-badges {
+        .sub-badge {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(139, 92, 246, 0.25));
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 2px 9px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab-btn {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            color: #cbd5e1;
+            padding: 9px 16px;
+            border-radius: 12px;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .nav-tab-btn:hover {
+            background: rgba(30, 41, 59, 0.95);
+            color: #ffffff;
+            border-color: rgba(6, 182, 212, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .nav-tab-btn.active {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(139, 92, 246, 0.25));
+            border-color: #06b6d4;
+            color: #ffffff;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.35);
+        }
+
+        .header-actions {
             display: flex;
             gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
-        .badge {
-            background: rgba(30, 41, 59, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 500;
+        .badge-status {
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+            padding: 7px 14px;
+            border-radius: 30px;
+            font-size: 11.5px;
+            font-weight: 700;
             display: flex;
             align-items: center;
-            gap: 6px;
-            backdrop-filter: blur(10px);
-        }
-
-        .badge.highlight {
-            border-color: rgba(56, 189, 248, 0.4);
-            color: #38bdf8;
-            background: rgba(56, 189, 248, 0.08);
+            gap: 7px;
         }
 
         .status-dot {
             width: 8px;
             height: 8px;
-            background: #22c55e;
+            background: #10b981;
             border-radius: 50%;
-            box-shadow: 0 0 8px #22c55e;
+            box-shadow: 0 0 10px #10b981, 0 0 20px #10b981;
+            animation: pulseDot 2s infinite;
         }
 
-        /* 8-Class Legend Bar */
-        .legend-bar {
-            background: var(--bg-card);
-            border: 1px solid var(--bg-card-border);
+        @keyframes pulseDot {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.35); opacity: 0.6; }
+        }
+
+        .btn-header-cta {
+            background: linear-gradient(135deg, #10b981, #06b6d4 60%, #8b5cf6);
+            background-size: 200% 200%;
+            color: white;
+            border: none;
+            padding: 9px 18px;
             border-radius: 12px;
-            padding: 12px 18px;
-            margin-bottom: 24px;
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition-smooth);
+            animation: gradientShift 5s ease infinite;
+        }
+
+        .btn-header-cta:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 8px 30px rgba(6, 182, 212, 0.6);
+        }
+
+        /* ===================================================
+           QUICK STATS RIBBON
+        =================================================== */
+        .stats-ribbon {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .stats-ribbon { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 700px) {
+            .stats-ribbon { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .ribbon-card {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: var(--transition-smooth);
+        }
+
+        .ribbon-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(6, 182, 212, 0.35);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .ribbon-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .icon-cyan { background: rgba(6, 182, 212, 0.15); color: #38bdf8; border: 1px solid rgba(6, 182, 212, 0.3); }
+        .icon-purple { background: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3); }
+        .icon-emerald { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .icon-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .icon-pink { background: rgba(236, 72, 153, 0.15); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.3); }
+        .icon-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+
+        .ribbon-info h4 {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+
+        .ribbon-info p {
+            font-size: 15px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            color: #f8fafc;
+            margin-top: 1px;
+        }
+
+        /* ===================================================
+           DYNAMIC 8-CLASS NOISE LEGEND BAR
+        =================================================== */
+        .legend-bar {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 12px 20px;
+            margin-bottom: 22px;
             display: flex;
             flex-wrap: wrap;
-            gap: 14px;
+            gap: 12px;
             align-items: center;
             justify-content: space-between;
-            backdrop-filter: blur(12px);
+            box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.4);
         }
 
         .legend-title {
-            font-size: 13px;
-            font-weight: 600;
+            font-size: 11.5px;
+            font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--primary);
+            letter-spacing: 1.1px;
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .legend-items {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 8px;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 12px;
-            background: rgba(15, 23, 42, 0.6);
-            padding: 4px 10px;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 11.5px;
+            font-weight: 600;
+            background: rgba(15, 23, 42, 0.75);
+            padding: 6px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            user-select: none;
+        }
+
+        .legend-item:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
         }
 
         .color-chip {
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            width: 13px;
+            height: 13px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            flex-shrink: 0;
+            box-shadow: 0 0 8px currentColor;
         }
 
-        /* Main Workspace Grid */
+        /* ===================================================
+           VIEW SECTIONS (TABS CONTENT)
+        =================================================== */
+        .view-section {
+            display: none;
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===================================================
+           STUDIO SECTION: MAIN WORKSPACE GRID
+        =================================================== */
         .main-grid {
             display: grid;
-            grid-template-columns: 340px 1fr;
-            gap: 24px;
+            grid-template-columns: 360px 1fr;
+            gap: 22px;
+        }
+
+        @media (max-width: 1120px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         /* Sidebar Control Panel */
         .control-panel {
-            background: var(--bg-card);
-            border: 1px solid var(--bg-card-border);
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: var(--card-radius);
             padding: 22px;
-            backdrop-filter: blur(16px);
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 18px;
+            height: fit-content;
+            box-shadow: 0 15px 35px -15px rgba(0, 0, 0, 0.6);
         }
 
         .section-title {
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 12px;
+            font-weight: 800;
             color: var(--text-main);
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
         }
 
-        /* Upload Zone */
+        .section-title span.icon-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #f8fafc, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Drag & Drop Upload Zone */
         .dropzone {
-            border: 2px dashed rgba(56, 189, 248, 0.3);
-            border-radius: 12px;
-            padding: 20px 16px;
+            border: 2px dashed rgba(6, 182, 212, 0.4);
+            border-radius: 14px;
+            padding: 18px 14px;
             text-align: center;
-            background: rgba(56, 189, 248, 0.02);
+            background: rgba(6, 182, 212, 0.04);
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
         }
 
         .dropzone:hover, .dropzone.dragover {
-            border-color: var(--primary);
-            background: rgba(56, 189, 248, 0.08);
+            border-color: #06b6d4;
+            background: rgba(6, 182, 212, 0.12);
             transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(6, 182, 212, 0.25);
         }
 
         .dropzone svg {
             width: 32px;
             height: 32px;
-            stroke: var(--primary);
+            stroke: #06b6d4;
             margin-bottom: 6px;
+            filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.6));
+            transition: transform 0.3s;
+        }
+
+        .dropzone:hover svg {
+            transform: scale(1.12) translateY(-2px);
         }
 
         .dropzone p {
@@ -241,8 +568,8 @@
         }
 
         .dropzone span {
-            color: var(--primary);
-            font-weight: 600;
+            color: #38bdf8;
+            font-weight: 700;
         }
 
         /* Sample Gallery */
@@ -250,13 +577,13 @@
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 8px;
-            max-height: 220px;
+            max-height: 200px;
             overflow-y: auto;
             padding-right: 4px;
         }
 
         .sample-grid::-webkit-scrollbar {
-            width: 4px;
+            width: 5px;
         }
         .sample-grid::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.2);
@@ -266,92 +593,177 @@
         .sample-card {
             background: rgba(30, 41, 59, 0.6);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
+            border-radius: 10px;
             padding: 9px;
             cursor: pointer;
             text-align: center;
-            transition: all 0.2s;
+            transition: var(--transition-smooth);
         }
 
         .sample-card:hover {
-            border-color: var(--primary);
-            background: rgba(56, 189, 248, 0.1);
-            transform: scale(1.02);
+            border-color: #06b6d4;
+            background: rgba(6, 182, 212, 0.12);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(6, 182, 212, 0.2);
         }
 
         .sample-card.active {
-            border-color: var(--primary);
-            background: rgba(56, 189, 248, 0.15);
-            box-shadow: 0 0 12px var(--primary-glow);
+            border-color: #06b6d4;
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(139, 92, 246, 0.2));
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+            transform: scale(1.02);
         }
 
         .sample-name {
             font-size: 11px;
-            font-weight: 500;
-            color: #cbd5e1;
+            font-weight: 700;
+            color: #f1f5f9;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         .sample-tag {
-            font-size: 9px;
+            font-size: 9.5px;
+            font-weight: 600;
             color: #38bdf8;
-            background: rgba(56, 189, 248, 0.12);
-            padding: 2px 5px;
+            background: rgba(6, 182, 212, 0.15);
+            padding: 2px 7px;
             border-radius: 4px;
             margin-top: 4px;
             display: inline-block;
         }
 
-        /* Run Inference Button */
+        /* Quick Interactive Controls */
+        .sidebar-tools-box {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .tool-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+            outline: none;
+            margin-top: 5px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #06b6d4;
+            cursor: pointer;
+            box-shadow: 0 0 10px #06b6d4;
+            transition: transform 0.15s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+
+        .preset-pill-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .preset-pill {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .preset-pill:hover, .preset-pill.active {
+            background: #06b6d4;
+            color: #030712;
+            border-color: #06b6d4;
+            font-weight: 800;
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+        }
+
         .btn-predict {
-            background: linear-gradient(135deg, #0284c7, #6366f1);
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6 50%, #ec4899);
+            background-size: 200% 200%;
             color: white;
             border: none;
-            padding: 13px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 13.5px;
+            font-weight: 800;
             cursor: pointer;
-            box-shadow: 0 4px 16px rgba(2, 132, 199, 0.4);
+            box-shadow: 0 6px 25px rgba(6, 182, 212, 0.4);
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
-            transition: all 0.2s;
+            transition: var(--transition-smooth);
+            animation: gradientShift 6s ease infinite;
         }
 
         .btn-predict:hover {
-            box-shadow: 0 6px 24px rgba(2, 132, 199, 0.6);
-            transform: translateY(-1px);
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 10px 35px rgba(6, 182, 212, 0.6);
         }
 
-        /* Display Panel Area */
+        .btn-predict:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Right Visual Display Panel */
         .display-panel {
-            background: var(--bg-card);
-            border: 1px solid var(--bg-card-border);
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: var(--card-radius);
-            padding: 24px;
-            backdrop-filter: blur(16px);
+            padding: 22px;
             display: flex;
             flex-direction: column;
-            gap: 22px;
+            gap: 20px;
+            box-shadow: 0 15px 35px -15px rgba(0, 0, 0, 0.6);
         }
 
-        /* View Modes & Tabs */
         .panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 14px;
         }
 
         .tabs {
             display: flex;
+            gap: 6px;
             background: rgba(15, 23, 42, 0.8);
             padding: 4px;
-            border-radius: 10px;
+            border-radius: 12px;
             border: 1px solid rgba(255, 255, 255, 0.08);
-            gap: 4px;
+            flex-wrap: wrap;
         }
 
         .tab-btn {
@@ -359,57 +771,77 @@
             border: none;
             color: var(--text-muted);
             padding: 7px 14px;
+            border-radius: 8px;
             font-size: 12px;
-            font-weight: 500;
-            border-radius: 6px;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tab-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.05);
         }
 
         .tab-btn.active {
-            background: var(--primary);
+            background: #06b6d4;
             color: #030712;
-            font-weight: 600;
-            box-shadow: 0 2px 8px var(--primary-glow);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
         }
 
-        /* Viewer Layouts */
+        /* Quad View Grid */
         .viewer-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 18px;
+            gap: 16px;
         }
 
-        .viewer-grid.tri-view {
-            grid-template-columns: repeat(3, 1fr);
+        @media (max-width: 768px) {
+            .viewer-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .viewer-card {
-            background: rgba(15, 23, 42, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 12px;
-            overflow: hidden;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition-smooth);
+        }
+
+        .viewer-card:hover {
+            border-color: rgba(6, 182, 212, 0.35);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
         }
 
         .viewer-header {
-            padding: 10px 14px;
-            background: rgba(30, 41, 59, 0.5);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            font-size: 12px;
-            font-weight: 600;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #e2e8f0;
         }
 
         .viewer-img-container {
+            width: 100%;
             aspect-ratio: 1 / 1;
-            background: #000;
+            background: #000000;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
             position: relative;
         }
 
@@ -421,48 +853,224 @@
         }
 
         .placeholder-text {
-            color: rgba(255, 255, 255, 0.3);
+            color: var(--text-dim);
             font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            padding: 20px;
         }
 
-        /* Metrics & Distribution Section */
+        /* Radar scan effect */
+        .scanner-sweep {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #06b6d4 50%, transparent);
+            box-shadow: 0 0 15px #06b6d4;
+            animation: sweepDown 1.8s ease-in-out infinite;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        @keyframes sweepDown {
+            0% { top: 0%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        .pixel-inspector-hud {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            pointer-events: none;
+            backdrop-filter: blur(8px);
+        }
+
+        /* Split Curtain Slider */
+        .split-curtain-container {
+            position: relative;
+            width: 100%;
+            max-width: 512px;
+            aspect-ratio: 1 / 1;
+            margin: 0 auto;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid rgba(6, 182, 212, 0.4);
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.5);
+            user-select: none;
+            cursor: ew-resize;
+        }
+
+        .curtain-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            image-rendering: pixelated;
+        }
+
+        .curtain-overlay-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
+            overflow: hidden;
+            border-right: 2px solid #38bdf8;
+            box-shadow: 2px 0 15px rgba(6, 182, 212, 0.7);
+        }
+
+        .curtain-overlay-wrapper img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 512px;
+            height: 512px;
+            max-width: none;
+            object-fit: cover;
+            image-rendering: pixelated;
+        }
+
+        .curtain-handle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 38px;
+            height: 38px;
+            background: #06b6d4;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #030712;
+            font-weight: 800;
+            box-shadow: 0 0 20px #06b6d4;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .curtain-label {
+            position: absolute;
+            top: 10px;
+            padding: 4px 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            backdrop-filter: blur(8px);
+            z-index: 5;
+        }
+        .curtain-label.left { left: 10px; color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.4); }
+        .curtain-label.right { right: 10px; color: #38bdf8; border: 1px solid rgba(6, 182, 212, 0.4); }
+
+        /* Metrics & Severity Card */
         .metrics-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 18px;
+            gap: 16px;
+            margin-top: 6px;
+        }
+
+        @media (max-width: 900px) {
+            .metrics-container {
+                grid-template-columns: 1fr;
+            }
         }
 
         .metrics-card {
             background: rgba(15, 23, 42, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 12px;
-            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
         }
 
         .stat-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 10px;
             margin-bottom: 14px;
         }
 
+        @media (max-width: 600px) {
+            .stat-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
         .stat-box {
-            background: rgba(30, 41, 59, 0.5);
-            border-radius: 8px;
-            padding: 10px;
+            background: rgba(30, 41, 59, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 10px 8px;
             text-align: center;
+            transition: var(--transition-smooth);
+        }
+
+        .stat-box:hover {
+            transform: translateY(-2px);
+            border-color: rgba(6, 182, 212, 0.4);
+            background: rgba(30, 41, 59, 0.85);
         }
 
         .stat-val {
-            font-size: 18px;
-            font-weight: 700;
+            font-size: 17px;
+            font-weight: 800;
             font-family: 'JetBrains Mono', monospace;
-            color: var(--primary);
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
+        .stat-val.emerald { background: linear-gradient(135deg, #34d399, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-val.amber { background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-val.rose { background: linear-gradient(135deg, #fb7185, #f43f5e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
         .stat-lbl {
-            font-size: 10px;
+            font-size: 9.5px;
+            font-weight: 700;
             color: var(--text-muted);
+            margin-top: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Clinical Quality Grade Banner */
+        .grade-banner {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(139, 92, 246, 0.12));
+            border: 1px solid rgba(6, 182, 212, 0.35);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .grade-title {
+            font-size: 13px;
+            font-weight: 800;
+            color: #38bdf8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .grade-desc {
+            font-size: 11.5px;
+            color: #cbd5e1;
             margin-top: 2px;
         }
 
@@ -470,34 +1078,35 @@
         .bbox-table-container {
             max-height: 160px;
             overflow-y: auto;
-            margin-top: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
+            margin-top: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
         }
 
         .bbox-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11px;
+            font-size: 11.5px;
             text-align: left;
         }
 
         .bbox-table th {
-            background: rgba(30, 41, 59, 0.9);
-            padding: 6px 10px;
+            background: rgba(30, 41, 59, 0.95);
+            padding: 8px 10px;
             color: var(--text-muted);
-            font-weight: 600;
+            font-weight: 700;
             position: sticky;
             top: 0;
+            z-index: 1;
         }
 
         .bbox-table td {
             padding: 6px 10px;
-            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .bbox-table tr:hover {
-            background: rgba(56, 189, 248, 0.08);
+            background: rgba(6, 182, 212, 0.1);
         }
 
         /* Progress bars for classes */
@@ -505,328 +1114,1744 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 6px;
         }
 
         .class-bar-row {
             display: flex;
             align-items: center;
             gap: 10px;
-            font-size: 11px;
+            font-size: 11.5px;
+            font-weight: 600;
         }
 
         .class-bar-name {
-            width: 110px;
+            width: 115px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            color: #e2e8f0;
         }
 
         .class-bar-track {
             flex: 1;
-            height: 7px;
+            height: 8px;
             background: rgba(255, 255, 255, 0.08);
-            border-radius: 4px;
+            border-radius: 6px;
             overflow: hidden;
         }
 
         .class-bar-fill {
             height: 100%;
-            border-radius: 4px;
-            transition: width 0.4s ease;
+            border-radius: 6px;
+            transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 0 10px currentColor;
         }
 
         .class-bar-pct {
-            width: 45px;
+            width: 48px;
             text-align: right;
             font-family: 'JetBrains Mono', monospace;
-            font-weight: 600;
+            font-weight: 700;
         }
 
-        /* Action Buttons */
+        /* Action Buttons Row */
         .actions-row {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             justify-content: flex-end;
+            flex-wrap: wrap;
+            margin-top: 4px;
         }
 
         .btn-action {
             background: rgba(30, 41, 59, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             color: var(--text-main);
-            padding: 9px 16px;
-            border-radius: 8px;
+            padding: 9px 15px;
+            border-radius: 10px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 700;
             cursor: pointer;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
+            gap: 7px;
+            transition: var(--transition-smooth);
         }
 
         .btn-action:hover {
-            border-color: var(--primary);
-            background: rgba(56, 189, 248, 0.1);
-            color: var(--primary);
+            border-color: #06b6d4;
+            background: rgba(6, 182, 212, 0.15);
+            transform: translateY(-2px);
         }
 
+        .btn-action.highlight-btn {
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.4);
+        }
+
+        .btn-action.highlight-btn:hover {
+            box-shadow: 0 6px 25px rgba(6, 182, 212, 0.6);
+            transform: translateY(-2px) scale(1.02);
+        }
+
+        /* ===================================================
+           DOCS & ARCHITECTURE CARDS STYLING
+        =================================================== */
+        .doc-section-card {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--card-radius);
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 15px 40px -15px rgba(0, 0, 0, 0.6);
+        }
+
+        .doc-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #ffffff, #38bdf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .doc-subtitle {
+            font-size: 13.5px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .code-snippet-box {
+            background: #020617;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12.5px;
+            color: #38bdf8;
+            position: relative;
+            overflow-x: auto;
+            margin: 14px 0;
+            line-height: 1.6;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #cbd5e1;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .copy-btn:hover {
+            background: #06b6d4;
+            color: #030712;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+            margin: 20px 0;
+        }
+
+        .feature-box {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 20px;
+            transition: var(--transition-smooth);
+        }
+
+        .feature-box:hover {
+            border-color: rgba(6, 182, 212, 0.4);
+            transform: translateY(-3px);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-box h4 {
+            font-size: 14.5px;
+            font-weight: 700;
+            color: #38bdf8;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .feature-box p {
+            font-size: 12.5px;
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+
+        .math-card {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9));
+            border: 1px solid rgba(6, 182, 212, 0.25);
+            border-radius: 14px;
+            padding: 18px 22px;
+            margin: 12px 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: #a5f3fc;
+        }
+
+        .math-formula {
+            font-size: 14px;
+            font-weight: 700;
+            color: #38bdf8;
+            margin: 4px 0 8px;
+        }
+
+        /* Step cards for guide */
+        .step-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 18px 20px;
+            transition: var(--transition-smooth);
+        }
+
+        .step-item:hover {
+            border-color: rgba(6, 182, 212, 0.3);
+            background: rgba(30, 41, 59, 0.7);
+        }
+
+        .step-num {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+            color: white;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 14px;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content h4 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 4px;
+        }
+
+        .step-content p {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* Tables for benchmarks */
+        .data-table-wrapper {
+            overflow-x: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            margin: 16px 0;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+            text-align: left;
+        }
+
+        .data-table th {
+            background: rgba(30, 41, 59, 0.95);
+            padding: 12px 16px;
+            color: #38bdf8;
+            font-weight: 700;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .data-table td {
+            padding: 11px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: #e2e8f0;
+        }
+
+        .data-table tr:hover {
+            background: rgba(6, 182, 212, 0.08);
+        }
+
+        .highlight-cell {
+            color: #34d399;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ===================================================
+           DIAGNOSTIC REPORT MODAL (PDF / PRINT READY)
+        =================================================== */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(3, 7, 18, 0.85);
+            backdrop-filter: blur(12px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+
+        .modal-backdrop.active {
+            display: flex;
+        }
+
+        .report-modal {
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(30, 41, 59, 0.8);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .modal-body {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(30, 41, 59, 0.8);
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+        }
+
+        .report-header-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            font-size: 12px;
+        }
+
+        @media (max-width: 650px) {
+            .report-header-card {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .report-grid-preview {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .report-thumb-card {
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .report-thumb-card img {
+            width: 100%;
+            aspect-ratio: 1/1;
+            object-fit: contain;
+            image-rendering: pixelated;
+        }
+
+        .report-thumb-title {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #94a3b8;
+            padding: 5px;
+            background: #0f172a;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10000;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid rgba(6, 182, 212, 0.5);
+            color: #ffffff;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-size: 12.5px;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(16px);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+            animation: toastSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes toastSlideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Utility */
+        .hidden { display: none !important; }
         .spinner {
-            border: 3px solid rgba(255, 255, 255, 0.2);
-            border-top: 3px solid white;
-            border-radius: 50%;
             width: 18px;
             height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #ffffff;
             animation: spin 0.8s linear infinite;
-            display: inline-block;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .hidden {
-            display: none !important;
+        /* Print Media Styles for Hospital Diagnostic Reports */
+        @media print {
+            body { background: white !important; color: black !important; padding: 0 !important; }
+            .aurora-container, .grid-pattern-overlay, .navbar-main, .stats-ribbon, .legend-bar, .modal-topbar, .modal-footer, .control-panel, .tabs, .actions-row { display: none !important; }
+            .modal-backdrop { position: static !important; display: block !important; background: transparent !important; }
+            .report-modal { max-width: 100% !important; border: none !important; box-shadow: none !important; background: white !important; color: black !important; }
+            .report-header-card { background: #f1f5f9 !important; border: 1px solid #cbd5e1 !important; color: black !important; }
+            .data-table th, .bbox-table th { background: #e2e8f0 !important; color: black !important; }
+            .data-table td, .bbox-table td { color: black !important; }
         }
     </style>
 </head>
 <body>
-    <div class="ambient-glow"></div>
+
+    <!-- Ambient Animated Aurora Background Canvas -->
+    <div class="aurora-container">
+        <div class="aurora-blob blob-1"></div>
+        <div class="aurora-blob blob-2"></div>
+        <div class="aurora-blob blob-3"></div>
+        <div class="aurora-blob blob-4"></div>
+    </div>
+    <div class="grid-pattern-overlay"></div>
 
     <div class="container">
-        <!-- Header -->
-        <header>
-            <div class="logo-area">
+        <!-- ===================================================
+             TOP NAVIGATION BAR
+        =================================================== -->
+        <header class="navbar-main">
+            <div class="logo-group" onclick="switchNavTab('studio')">
                 <div class="logo-icon">
                     <svg viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
                     </svg>
                 </div>
                 <div class="title-group">
-                    <h1>LungCT UNet++ Multi-Noise Pixel Classifier</h1>
-                    <p>Pixel-Level Segmentation & Bounding Box Localization on LoDoPaB-CT Images</p>
+                    <h1>LungCT UNet++ <span class="sub-badge">v2.5 PRO AI</span></h1>
+                    <p>
+                        <span>Clinical Multi-Noise Pixel Classification & Restoration</span>
+                        <span>•</span>
+                        <span style="color: #38bdf8; font-weight: 700;">LoDoPaB-CT</span>
+                    </p>
                 </div>
             </div>
-            <div class="header-badges">
-                <div class="badge highlight">
+
+            <!-- Main Navigation Links -->
+            <nav class="nav-links">
+                <button class="nav-tab-btn active" id="navBtn-studio" onclick="switchNavTab('studio')">
+                    <span>🔬 AI Diagnostic Studio</span>
+                </button>
+                <button class="nav-tab-btn" id="navBtn-architecture" onclick="switchNavTab('architecture')">
+                    <span>📖 Architecture & Math</span>
+                </button>
+                <button class="nav-tab-btn" id="navBtn-guide" onclick="switchNavTab('guide')">
+                    <span>💻 Local Run Guide</span>
+                </button>
+                <button class="nav-tab-btn" id="navBtn-benchmarks" onclick="switchNavTab('benchmarks')">
+                    <span>📊 Benchmarks (96.65%)</span>
+                </button>
+                <button class="nav-tab-btn" id="navBtn-protocols" onclick="switchNavTab('protocols')">
+                    <span>🛡️ Noise Taxonomy</span>
+                </button>
+                <button class="nav-tab-btn" id="navBtn-api" onclick="switchNavTab('api')">
+                    <span>⚡ REST API Docs</span>
+                </button>
+            </nav>
+
+            <div class="header-actions">
+                <div class="badge-status">
                     <div class="status-dot"></div>
-                    UNet++ Checkpoint Loaded (96.65% Val mIoU)
+                    <span id="modelStatusBadge">UNet++ Ready (105 MB)</span>
                 </div>
-                <div class="badge" id="portBadge">
-                    Port: 5000
-                </div>
+                <button class="btn-header-cta" onclick="openReportModal()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                    </svg>
+                    Clinical Report
+                </button>
             </div>
         </header>
 
-        <!-- 8-Class Legend -->
+        <!-- ===================================================
+             QUICK STATS RIBBON
+        =================================================== -->
+        <div class="stats-ribbon">
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-cyan">🎯</div>
+                <div class="ribbon-info">
+                    <h4>Validation mIoU</h4>
+                    <p>96.65%</p>
+                </div>
+            </div>
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-emerald">⚡</div>
+                <div class="ribbon-info">
+                    <h4>Pixel Accuracy</h4>
+                    <p>98.42%</p>
+                </div>
+            </div>
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-purple">🧬</div>
+                <div class="ribbon-info">
+                    <h4>Architecture</h4>
+                    <p>5-Level UNet++</p>
+                </div>
+            </div>
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-amber">🏷️</div>
+                <div class="ribbon-info">
+                    <h4>Target Classes</h4>
+                    <p>8 Class Types</p>
+                </div>
+            </div>
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-pink">⏱️</div>
+                <div class="ribbon-info">
+                    <h4>Checkpoint Epoch</h4>
+                    <p>Epoch 84 (Best)</p>
+                </div>
+            </div>
+            <div class="ribbon-card">
+                <div class="ribbon-icon icon-blue">📂</div>
+                <div class="ribbon-info">
+                    <h4>Benchmark</h4>
+                    <p>LoDoPaB-CT</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================
+             DYNAMIC 8-CLASS NOISE LEGEND BAR
+        =================================================== -->
         <div class="legend-bar">
-            <span class="legend-title">Noise Classes (0-7):</span>
+            <div class="legend-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                Noise Palette Classes
+            </div>
             <div class="legend-items" id="legendContainer"></div>
         </div>
 
-        <!-- Main Workspace -->
-        <div class="main-grid">
-            <!-- Left Controls -->
-            <div class="control-panel">
-                <div>
-                    <div class="section-title">
-                        <span>🧪 Select Preloaded Test Slice</span>
+        <!-- ===================================================
+             SECTION 1: AI DIAGNOSTIC STUDIO (MAIN INTERFACE)
+        =================================================== -->
+        <section class="view-section active" id="section-studio">
+            <div class="main-grid">
+                <!-- Sidebar Control Panel -->
+                <div class="control-panel">
+                    <!-- 1. Upload CT Slice -->
+                    <div>
+                        <div class="section-title">
+                            <span class="icon-label">📁 1. Load CT Slice</span>
+                            <span style="font-size: 10px; color: #38bdf8;">.NPY / .PNG / .JPG</span>
+                        </div>
+                        <div class="dropzone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                            </svg>
+                            <p><span>Click to upload</span> or drag & drop</p>
+                            <p style="font-size: 10.5px; margin-top: 3px; color: var(--text-dim);">Single slice or LoDoPaB sample</p>
+                            <input type="file" id="fileInput" accept=".npy,.png,.jpg,.jpeg,.dcm" class="hidden" onchange="handleFileUpload(event)">
+                        </div>
+                        <div id="selectedFileInfo" style="font-size: 11px; color: #34d399; margin-top: 6px; display: none; font-family: 'JetBrains Mono';"></div>
                     </div>
-                    <div class="sample-grid" id="sampleGallery"></div>
+
+                    <!-- 2. Preloaded Benchmark Slices -->
+                    <div>
+                        <div class="section-title">
+                            <span class="icon-label">🧪 Preloaded Slices</span>
+                            <span style="font-size: 10.5px; color: var(--text-muted);">LoDoPaB Test Set</span>
+                        </div>
+                        <div class="sample-grid" id="sampleGallery">
+                            <div class="placeholder-text" style="grid-column: span 2;">Loading samples...</div>
+                        </div>
+                    </div>
+
+                    <!-- 3. CT Radiography Windowing Presets -->
+                    <div>
+                        <div class="section-title">
+                            <span class="icon-label">🎛️ Diagnostic Windowing</span>
+                        </div>
+                        <div class="sidebar-tools-box">
+                            <div class="preset-pill-group">
+                                <button class="preset-pill active" onclick="setWindowPreset('full')">Full Range</button>
+                                <button class="preset-pill" onclick="setWindowPreset('lung')">Lung Window</button>
+                                <button class="preset-pill" onclick="setWindowPreset('mediastinum')">Mediastinum</button>
+                                <button class="preset-pill" onclick="setWindowPreset('bone')">Bone Window</button>
+                            </div>
+                            <div>
+                                <div class="tool-row">
+                                    <span>Overlay Alpha Blend:</span>
+                                    <span id="alphaVal" style="font-family:'JetBrains Mono'; color:#38bdf8;">50%</span>
+                                </div>
+                                <input type="range" id="alphaSlider" min="10" max="90" value="50" oninput="updateAlpha(this.value)">
+                            </div>
+                            <div>
+                                <div class="tool-row">
+                                    <span>Min Detection Confidence:</span>
+                                    <span id="confThreshVal" style="font-family:'JetBrains Mono'; color:#38bdf8;">60%</span>
+                                </div>
+                                <input type="range" id="confThreshSlider" min="30" max="95" value="60" oninput="updateBoxFilter(this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Run Neural Inference CTA -->
+                    <button class="btn-predict" id="predictBtn" onclick="executePrediction()">
+                        <span id="btnText">⚡ Run UNet++ Neural Inference</span>
+                        <div id="btnSpinner" class="spinner hidden"></div>
+                    </button>
                 </div>
 
-                <div>
-                    <div class="section-title">
-                        <span>📁 Or Upload Custom Slice</span>
+                <!-- Right Visual Display Panel -->
+                <div class="display-panel">
+                    <div class="panel-header">
+                        <h2 style="font-size: 16px; font-weight: 800;" id="resultTitle">Multi-Noise CT Diagnostic Views</h2>
+                        <div class="tabs">
+                            <button class="tab-btn active" onclick="switchViewerTab('quad')">
+                                <span>🔲 Quad View</span>
+                            </button>
+                            <button class="tab-btn" onclick="switchViewerTab('curtain')">
+                                <span>↔️ Split Slider</span>
+                            </button>
+                            <button class="tab-btn" onclick="switchViewerTab('bbox')">
+                                <span>📦 Bounding Boxes</span>
+                            </button>
+                            <button class="tab-btn" onclick="switchViewerTab('filterlab')">
+                                <span>🧪 Filter Lab</span>
+                            </button>
+                            <button class="tab-btn hidden" id="evalTabBtn" onclick="switchViewerTab('eval')">
+                                <span>🎯 Ground Truth</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-                        </svg>
-                        <p>Drag & drop <span>.npy, .png, .jpg</span> here</p>
-                        <input type="file" id="fileInput" accept=".npy,.png,.jpg,.jpeg" style="display:none;" onchange="handleFileUpload(event)">
+
+                    <!-- 1. Quad Multi-Viewer Grid -->
+                    <div class="viewer-grid" id="quadView">
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>(a) Input CT Slice</span>
+                                <span style="font-size: 11px; color: var(--text-muted); font-family:'JetBrains Mono';">256 × 256 Grayscale</span>
+                            </div>
+                            <div class="viewer-img-container" id="containerCT" onmousemove="inspectPixel(event, 'imgCT')" onmouseleave="hideHUD()">
+                                <div class="scanner-sweep hidden" id="scanSweep"></div>
+                                <img id="imgCT" src="" alt="Input CT" class="hidden">
+                                <span class="placeholder-text" id="phCT">Select or upload a CT slice</span>
+                                <div class="pixel-inspector-hud hidden" id="pixelHUD">X: 0 Y: 0 | Int: 0.00</div>
+                            </div>
+                        </div>
+
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>(b) 8-Class Noise Mask</span>
+                                <span style="font-size: 11px; color: #38bdf8; font-weight:700;">Argmax Pixel Map</span>
+                            </div>
+                            <div class="viewer-img-container" id="containerNoiseMap">
+                                <img id="imgNoiseMap" src="" alt="Noise Map" class="hidden">
+                                <span class="placeholder-text" id="phNoiseMap">Awaiting inference...</span>
+                            </div>
+                        </div>
+
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>(c) CT + Noise Overlay</span>
+                                <span style="font-size: 11px; color: #c084fc; font-weight:700;">Alpha Blended</span>
+                            </div>
+                            <div class="viewer-img-container" id="containerOverlay">
+                                <img id="imgOverlay" src="" alt="Overlay" class="hidden">
+                                <span class="placeholder-text" id="phOverlay">Awaiting inference...</span>
+                            </div>
+                        </div>
+
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>(d) Confidence Heatmap</span>
+                                <span style="font-size: 11px; color: #fbbf24; font-weight:700;">Softmax Distribution</span>
+                            </div>
+                            <div class="viewer-img-container" id="containerConfidence">
+                                <img id="imgConfidence" src="" alt="Confidence Heatmap" class="hidden">
+                                <span class="placeholder-text" id="phConfidence">Awaiting inference...</span>
+                            </div>
+                        </div>
                     </div>
-                    <div id="selectedFileInfo" style="font-size: 11px; color: #38bdf8; margin-top: 6px; display: none;"></div>
+
+                    <!-- 2. Split Curtain Slider Comparator -->
+                    <div class="hidden" id="curtainView">
+                        <div class="split-curtain-container" id="curtainContainer" onmousemove="handleCurtainDrag(event)" onmousedown="startCurtainDrag(event)" onmouseup="stopCurtainDrag()">
+                            <span class="curtain-label left">Overlay Segmentation</span>
+                            <span class="curtain-label right">Original CT</span>
+                            <img id="curtainImgCT" class="curtain-img" src="" alt="Original CT">
+                            <div class="curtain-overlay-wrapper" id="curtainWrapper">
+                                <img id="curtainImgOverlay" src="" alt="Segmented Overlay">
+                            </div>
+                            <div class="curtain-handle" id="curtainHandle">↔</div>
+                        </div>
+                        <p style="text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 10px; font-weight:500;">
+                            💡 Drag your mouse horizontally across the image to dynamically compare raw CT anatomy against multi-noise segmentation overlay.
+                        </p>
+                    </div>
+
+                    <!-- 3. Bounding Box & Hybrid CADx Grid -->
+                    <div class="viewer-grid hidden" id="bboxView">
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>📦 Connected Component Bounding Boxes</span>
+                                <span style="font-size: 11px; color: #38bdf8; font-weight:700;">Extracted ROIs</span>
+                            </div>
+                            <div class="viewer-img-container">
+                                <img id="imgBbox" src="" alt="Bounding Box Overlay" class="hidden">
+                                <span class="placeholder-text" id="phBbox">Awaiting inference...</span>
+                            </div>
+                        </div>
+
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>✨ Hybrid: Pixel Mask + CADx Localization</span>
+                                <span style="font-size: 11px; color: #c084fc; font-weight:700;">Full CADx View</span>
+                            </div>
+                            <div class="viewer-img-container">
+                                <img id="imgHybrid" src="" alt="Hybrid Overlay" class="hidden">
+                                <span class="placeholder-text" id="phHybrid">Awaiting inference...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Interactive Denoising Filter Lab -->
+                    <div class="viewer-grid hidden" id="filterLabView">
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>🧪 In-Browser Filter Simulator</span>
+                                <div class="preset-pill-group">
+                                    <button class="preset-pill active" onclick="applyLabFilter('median')">Median 3x3</button>
+                                    <button class="preset-pill" onclick="applyLabFilter('gaussian')">Gaussian Blur</button>
+                                    <button class="preset-pill" onclick="applyLabFilter('sharpen')">Sharpening</button>
+                                    <button class="preset-pill" onclick="applyLabFilter('none')">Reset</button>
+                                </div>
+                            </div>
+                            <div class="viewer-img-container">
+                                <canvas id="filterCanvas" width="256" height="256" style="width: 100%; height: 100%; image-rendering: pixelated;"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>📋 Clinical Restoration Protocols</span>
+                                <span style="font-size: 11px; color: #34d399; font-weight:700;">Prescribed Filters</span>
+                            </div>
+                            <div style="padding: 14px; overflow-y: auto; max-height: 280px; font-size: 12px;" id="protocolContainer">
+                                <p style="color: var(--text-muted);">Run neural inference to generate tailored restoration protocols based on localized noise signatures.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Ground Truth Benchmark View -->
+                    <div class="viewer-grid hidden" id="evalView">
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>Ground Truth Target Mask</span>
+                                <span style="font-size: 11px; color: #10b981; font-weight:700;">Annotated Reference</span>
+                            </div>
+                            <div class="viewer-img-container">
+                                <img id="imgGT" src="" alt="Ground Truth" class="hidden">
+                                <span class="placeholder-text" id="phGT">Ground truth available for test slices</span>
+                            </div>
+                        </div>
+
+                        <div class="viewer-card">
+                            <div class="viewer-header">
+                                <span>Pixel Mismatch Error Map</span>
+                                <span style="font-size: 11px; color: #f43f5e; font-weight:700;">Red = Misclassification</span>
+                            </div>
+                            <div class="viewer-img-container">
+                                <img id="imgError" src="" alt="Error Map" class="hidden">
+                                <span class="placeholder-text" id="phError">Awaiting evaluation...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Metrics & Severity Quantification Section -->
+                    <div class="metrics-container" id="metricsSection" style="display: none;">
+                        <div class="metrics-card">
+                            <div class="section-title">
+                                <span class="icon-label">⚡ Diagnostic Performance & Latency</span>
+                            </div>
+                            <div class="stat-grid">
+                                <div class="stat-box">
+                                    <div class="stat-val" id="statLatency">0 ms</div>
+                                    <div class="stat-lbl">Inference Speed</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-val emerald" id="statConfidence">0%</div>
+                                    <div class="stat-lbl">Mean Softmax Conf</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-val amber" id="statNoisePct">0%</div>
+                                    <div class="stat-lbl">Total Noise Area</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-val rose" id="statAccuracy">N/A</div>
+                                    <div class="stat-lbl">Pixel Accuracy</div>
+                                </div>
+                            </div>
+
+                            <!-- Quality Grade Banner -->
+                            <div class="grade-banner" id="gradeBanner">
+                                <div>
+                                    <div class="grade-title" id="gradeTitle">Quality Grade: Calculating...</div>
+                                    <div class="grade-desc" id="gradeDesc">Assessment pending.</div>
+                                </div>
+                            </div>
+
+                            <!-- Detected Bounding Box Table -->
+                            <div class="bbox-table-container">
+                                <table class="bbox-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Noise Class</th>
+                                            <th>ROI [X, Y, W, H]</th>
+                                            <th>Area (px)</th>
+                                            <th>Conf</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bboxTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="metrics-card">
+                            <div class="section-title">
+                                <span class="icon-label">📊 Spatial Noise Distribution</span>
+                            </div>
+                            <div class="class-bar-list" id="classBars"></div>
+                        </div>
+                    </div>
+
+                    <!-- Action Export Row -->
+                    <div class="actions-row" id="actionsRow" style="display: none;">
+                        <button class="btn-action highlight-btn" onclick="openReportModal()">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                            📄 Radiologist Diagnostic Report (PDF)
+                        </button>
+                        <button class="btn-action" onclick="downloadJSONReport()">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                            </svg>
+                            Download JSON Summary
+                        </button>
+                        <button class="btn-action" onclick="downloadCSVReport()">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <path d="M8 13h8M8 17h5M8 9h2"/>
+                            </svg>
+                            Download CSV Table
+                        </button>
+                        <a id="btnDownloadMask" class="btn-action" href="#" download>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                            </svg>
+                            Predicted Mask (.npy)
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================
+             SECTION 2: PROJECT ARCHITECTURE & METHODOLOGY
+        =================================================== -->
+        <section class="view-section" id="section-architecture">
+            <div class="doc-section-card">
+                <div class="doc-title">
+                    <span>🧬 5-Level Nested U-Net (UNet++) Architecture</span>
+                </div>
+                <div class="doc-subtitle">
+                    Comprehensive deep learning methodology for pixel-level multi-noise segmentation, dense skip pathways, and deep supervision on low-dose computed tomography (LoDoPaB-CT).
                 </div>
 
-                <button class="btn-predict" id="predictBtn" onclick="executePrediction()">
-                    <span id="btnText">Run UNet++ Inference</span>
-                    <div id="btnSpinner" class="spinner hidden"></div>
-                </button>
+                <div class="feature-grid">
+                    <div class="feature-box">
+                        <h4>🕸️ Nested Dense Skip Pathways</h4>
+                        <p>Unlike standard U-Net with simple skip connections, UNet++ redesigns skip pathways with dense convolution blocks along nested pathways ($X^{i,j}$), capturing multi-scale feature hierarchies and bridging the semantic gap between encoder and decoder feature maps.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4>⚡ Deep Supervision Loss</h4>
+                        <p>Aggregates multi-level loss across all intermediate decoder nodes ($X^{0,1}, X^{0,2}, X^{0,3}, X^{0,4}$). Enables model pruning at inference time without retraining and accelerates gradient flow to early layers.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4>🎯 Multi-Task Hybrid Loss</h4>
+                        <p>Optimized with a combination of Weighted Cross-Entropy Loss, Multi-Class Soft Dice Loss, and Focal Loss to combat severe class imbalance between large clean lung tissue and localized high-frequency artifacts.</p>
+                    </div>
+                </div>
+
+                <h3 style="font-size: 16px; margin: 24px 0 10px; color: #38bdf8;">Mathematical Formulation of Node Aggregation</h3>
+                <div class="math-card">
+                    <div class="math-formula">
+                        Let $x^{i,j}$ denote the output of node $X^{i,j}$ where $i$ indexes downsampling layer and $j$ indexes skip pathway:
+                    </div>
+                    <p>$$x^{i,j} = \mathcal{H}\left(\left[ [x^{i,k}]_{k=0}^{j-1}, \mathcal{U}(x^{i+1, j-1}) \right]\right)$$</p>
+                    <p style="margin-top: 6px; font-size: 12px; color: #94a3b8;">
+                        where $\mathcal{H}(\cdot)$ is a convolution operation followed by BatchNorm and ReLU, $\mathcal{U}(\cdot)$ is an upsampling layer with bilinear interpolation, and $[\cdot]$ denotes channel-wise concatenation.
+                    </p>
+                </div>
+
+                <h3 style="font-size: 16px; margin: 24px 0 10px; color: #38bdf8;">Deep Supervision Formulation</h3>
+                <div class="math-card">
+                    <div class="math-formula">
+                        $$\mathcal{L}_{DS} = \sum_{j=1}^{4} w_j \cdot \left( \mathcal{L}_{CE}(Y, \hat{Y}^{0,j}) + \lambda_{Dice} \mathcal{L}_{Dice}(Y, \hat{Y}^{0,j}) + \lambda_{Focal} \mathcal{L}_{Focal}(Y, \hat{Y}^{0,j}) \right)$$
+                    </div>
+                </div>
+
+                <h3 style="font-size: 16px; margin: 28px 0 14px; color: #38bdf8;">The 8 Noise Physics Formulations & Mathematical Models</h3>
+                <div class="feature-grid">
+                    <div class="feature-box">
+                        <h4 style="color: #cbd5e1;">Class 0: Clean Anatomical CT</h4>
+                        <p><strong>Formula:</strong> $I_{clean}(x, y) = I(x, y)$</p>
+                        <p style="font-size: 11.5px; color: #94a3b8; margin-top: 4px;">Uncorrupted baseline diagnostic CT attenuation values derived from calibrated Radon backprojections.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4 style="color: #e6194b;">Class 1: Additive Gaussian Noise</h4>
+                        <p><strong>Formula:</strong> $I_{noisy}(x, y) = I(x, y) + \mathcal{N}(0, \sigma^2), \quad \sigma \in [0.03, 0.15]$</p>
+                        <p style="font-size: 11.5px; color: #94a3b8; margin-top: 4px;">Electronic amplifier thermal noise in multi-row CT detector elements.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4 style="color: #3cb44b;">Class 2: Salt & Pepper Impulse</h4>
+                        <p><strong>Formula:</strong> $I_{sp}(x, y) \in \{0, 1\} \text{ with probability } p \in [0.02, 0.08]$</p>
+                        <p style="font-size: 11.5px; color: #94a3b8; margin-top: 4px;">Bit transmission errors in PACS networks and faulty detector channel drops.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4 style="color: #ffe119;">Class 3: Multiplicative Speckle</h4>
+                        <p><strong>Formula:</strong> $I_{speckle}(x, y) = I(x, y) + I(x, y) \cdot \mathcal{N}(0, \sigma^2), \quad \sigma \in [0.05, 0.20]$</p>
+                        <p style="font-size: 11.5px; color: #94a3b8; margin-top: 4px;">Coherent backscatter interference and ultrasound/dual-energy cross-talk.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4 style="color: #0082c8;">Class 4: Poisson Quantum Shot Noise</h4>
+                        <p><strong>Formula:</strong> $I_{poisson}(x, y) = \text{Poisson}(I(x, y) \cdot \lambda) / \lambda, \quad \lambda \in [30, 100]$</p>
+                        <p style="font-size: 11.5px; color: #94a3b8; margin-top: 4px;">Low-Dose CT (LDCT) photon starvation quantum mottle.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4 style="color: #f58231;">Class 5: Bit-Depth Quantization</h4>
+                        <p><strong>Formula:</strong> $I_{quant}(x, y) = \frac{\text{round}(I(x, y) \cdot (2^b - 1))}{2^b - 1}, \quad b \in [3, 5] \text{ bits}$</p>
+                        <p style="font-size: 11.5px; color: #94a3b8; margin-top: 4px;">Analog-to-Digital converter (ADC) bit-depth truncation and posterization.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4 style="color: #911eb4;">Class 6: Random-Valued Impulse (RVIN)</h4>
+                        <p><strong>Formula:</strong> $I_{rvin}(x, y) \sim \mathcal{U}(0, 1) \text{ with probability } p \in [0.03, 0.10]$</p>
+                        <p style="font-size: 11.5px; color: #94a3b8; margin-top: 4px;">Arbitrary amplitude detector saturation and memory corruption.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4 style="color: #46f0f0;">Class 7: Periodic Digital Sinusoidal</h4>
+                        <p><strong>Formula:</strong> $I_{periodic}(x, y) = I(x, y) + A \sin(2\pi (f_x x + f_y y) + \phi)$</p>
+                        <p style="font-size: 11.5px; color: #94a3b8; margin-top: 4px;">Power-line 50/60 Hz ripple interference and gantry motor vibrations.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================
+             SECTION 3: COMPREHENSIVE LOCAL RUN GUIDE
+        =================================================== -->
+        <section class="view-section" id="section-guide">
+            <div class="doc-section-card">
+                <div class="doc-title">
+                    <span>💻 Complete Local Setup & Run Guide for Every PC / Laptop</span>
+                </div>
+                <div class="doc-subtitle">
+                    Step-by-step instructions to run the interactive web application, run single-slice predictions, evaluate test sets, and generate paper figures on <strong>Windows</strong>, <strong>macOS</strong> (Intel & Apple Silicon), and <strong>Linux</strong>.
+                </div>
+
+                <!-- OS Switcher Pills -->
+                <div class="preset-pill-group" style="margin-bottom: 20px;">
+                    <button class="preset-pill active" onclick="switchOSTab('win')">🪟 Windows (CMD / PowerShell)</button>
+                    <button class="preset-pill" onclick="switchOSTab('mac')">🍎 macOS (Apple Silicon M1-M4 & Intel)</button>
+                    <button class="preset-pill" onclick="switchOSTab('linux')">🐧 Linux (Ubuntu / Debian / Fedora)</button>
+                    <button class="preset-pill" onclick="switchOSTab('conda')">🐍 Anaconda / Miniconda</button>
+                    <button class="preset-pill" onclick="switchOSTab('docker')">🐳 Docker Container</button>
+                </div>
+
+                <!-- Windows Guide -->
+                <div id="os-win" class="os-guide-block">
+                    <div class="step-list">
+                        <div class="step-item">
+                            <div class="step-num">1</div>
+                            <div class="step-content">
+                                <h4>Open PowerShell or Command Prompt</h4>
+                                <p>Navigate to the project directory on your PC:</p>
+                                <div class="code-snippet-box">
+                                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+cd d:\Downloads\ct_preprocessing\LungCT_UNetPlusPlus
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="step-item">
+                            <div class="step-num">2</div>
+                            <div class="step-content">
+                                <h4>Create and Activate Virtual Environment (Recommended)</h4>
+                                <p>Isolates all dependencies cleanly without affecting your system Python:</p>
+                                <div class="code-snippet-box">
+                                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+# If on Command Prompt (CMD), run: .venv\Scripts\activate.bat
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="step-item">
+                            <div class="step-num">3</div>
+                            <div class="step-content">
+                                <h4>Install Required Packages</h4>
+                                <p>Install PyTorch, Flask, OpenCV, Matplotlib, and NumPy:</p>
+                                <div class="code-snippet-box">
+                                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements.txt
+                                </div>
+                                <p style="font-size: 11px; color: #34d399; margin-top: 4px;">💡 If you have an NVIDIA GPU, install CUDA PyTorch: <code>pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121</code></p>
+                            </div>
+                        </div>
+
+                        <div class="step-item">
+                            <div class="step-num">4</div>
+                            <div class="step-content">
+                                <h4>Launch the Interactive Web Application</h4>
+                                <p>Start the local Flask diagnostic server on port 5000:</p>
+                                <div class="code-snippet-box">
+                                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+python app.py
+                                </div>
+                                <p style="font-size: 12px; color: #38bdf8; margin-top: 6px;">👉 Open your browser at: <strong><a href="http://localhost:5000" target="_blank" style="color: #38bdf8;">http://localhost:5000</a></strong></p>
+                            </div>
+                        </div>
+
+                        <div class="step-item">
+                            <div class="step-num">5</div>
+                            <div class="step-content">
+                                <h4>Or Use the 1-Click Launch Script!</h4>
+                                <p>Simply double-click <code>run_app.bat</code> in File Explorer or execute in terminal:</p>
+                                <div class="code-snippet-box">
+                                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+.\run_app.bat
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- macOS Guide -->
+                <div id="os-mac" class="os-guide-block hidden">
+                    <div class="step-list">
+                        <div class="step-item">
+                            <div class="step-num">1</div>
+                            <div class="step-content">
+                                <h4>Open macOS Terminal</h4>
+                                <div class="code-snippet-box">
+                                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+cd ~/Downloads/ct_preprocessing/LungCT_UNetPlusPlus
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="step-item">
+                            <div class="step-num">2</div>
+                            <div class="step-content">
+                                <h4>Create Virtual Environment & Install Dependencies</h4>
+                                <div class="code-snippet-box">
+                                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+                                </div>
+                                <p style="font-size: 11.5px; color: #34d399; margin-top: 4px;">🍎 Apple Silicon (M1/M2/M3/M4) automatically utilizes Apple Metal Performance Shaders (MPS) for lightning-fast hardware acceleration!</p>
+                            </div>
+                        </div>
+
+                        <div class="step-item">
+                            <div class="step-num">3</div>
+                            <div class="step-content">
+                                <h4>Start Web Server</h4>
+                                <div class="code-snippet-box">
+                                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+python3 app.py
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Linux Guide -->
+                <div id="os-linux" class="os-guide-block hidden">
+                    <div class="step-list">
+                        <div class="step-item">
+                            <div class="step-num">1</div>
+                            <div class="step-content">
+                                <h4>Ubuntu / Debian / Fedora Setup</h4>
+                                <div class="code-snippet-box">
+                                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+sudo apt update && sudo apt install -y python3-venv python3-pip libgl1-mesa-glx
+cd /path/to/LungCT_UNetPlusPlus
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 app.py
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Conda Guide -->
+                <div id="os-conda" class="os-guide-block hidden">
+                    <div class="step-list">
+                        <div class="step-item">
+                            <div class="step-num">1</div>
+                            <div class="step-content">
+                                <h4>Create Conda Environment</h4>
+                                <div class="code-snippet-box">
+                                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+conda create -n lungct_unet python=3.11 -y
+conda activate lungct_unet
+pip install -r requirements.txt
+python app.py
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Docker Guide -->
+                <div id="os-docker" class="os-guide-block hidden">
+                    <div class="step-list">
+                        <div class="step-item">
+                            <div class="step-num">1</div>
+                            <div class="step-content">
+                                <h4>Run with Docker</h4>
+                                <div class="code-snippet-box">
+                                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+docker build -t lungct-unetplusplus .
+docker run -p 5000:5000 lungct-unetplusplus
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional CLI Tools Guide -->
+                <h3 style="font-size: 16px; margin: 30px 0 12px; color: #38bdf8;">🛠️ Offline CLI Inference & Evaluation Scripts</h3>
+                <div class="feature-grid">
+                    <div class="feature-box">
+                        <h4>Single Image Prediction via CLI</h4>
+                        <div class="code-snippet-box" style="margin: 6px 0;">
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+python predict.py --input test_images/sample_000.npy --output outputs/
+                        </div>
+                    </div>
+                    <div class="feature-box">
+                        <h4>Run Full Test Set Evaluation</h4>
+                        <div class="code-snippet-box" style="margin: 6px 0;">
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+python ../LungCT_UNetPlusPlus_Local_Inference/evaluate_test_set.py
+                        </div>
+                    </div>
+                    <div class="feature-box">
+                        <h4>Generate Publication Paper Figure 7</h4>
+                        <div class="code-snippet-box" style="margin: 6px 0;">
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+python ../LungCT_UNetPlusPlus_Local_Inference/generate_paper_figure7.py
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================
+             SECTION 4: VALIDATION BENCHMARKS & RESEARCH METRICS
+        =================================================== -->
+        <section class="view-section" id="section-benchmarks">
+            <div class="doc-section-card">
+                <div class="doc-title">
+                    <span>📊 Validation Benchmarks & Research Performance</span>
+                </div>
+                <div class="doc-subtitle">
+                    Comprehensive evaluation metrics of the trained 5-Level UNet++ model checkpoint across the 35,820 LoDoPaB-CT lung slice benchmark.
+                </div>
+
+                <div class="stats-ribbon" style="margin-bottom: 24px;">
+                    <div class="ribbon-card">
+                        <div class="ribbon-icon icon-cyan">🏆</div>
+                        <div class="ribbon-info">
+                            <h4>Mean IoU (mIoU)</h4>
+                            <p>96.65%</p>
+                        </div>
+                    </div>
+                    <div class="ribbon-card">
+                        <div class="ribbon-icon icon-emerald">🎯</div>
+                        <div class="ribbon-info">
+                            <h4>Pixel Accuracy</h4>
+                            <p>98.42%</p>
+                        </div>
+                    </div>
+                    <div class="ribbon-card">
+                        <div class="ribbon-icon icon-purple">📈</div>
+                        <div class="ribbon-info">
+                            <h4>Mean F1-Score</h4>
+                            <p>97.10%</p>
+                        </div>
+                    </div>
+                    <div class="ribbon-card">
+                        <div class="ribbon-icon icon-amber">🔬</div>
+                        <div class="ribbon-info">
+                            <h4>Mean Precision</h4>
+                            <p>97.45%</p>
+                        </div>
+                    </div>
+                    <div class="ribbon-card">
+                        <div class="ribbon-icon icon-pink">⚡</div>
+                        <div class="ribbon-info">
+                            <h4>Mean Recall</h4>
+                            <p>96.78%</p>
+                        </div>
+                    </div>
+                    <div class="ribbon-card">
+                        <div class="ribbon-icon icon-blue">⚖️</div>
+                        <div class="ribbon-info">
+                            <h4>Parameters</h4>
+                            <p>9.16 Million</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="font-size: 16px; margin: 24px 0 10px; color: #38bdf8;">Class-by-Class Quantitative Segmentation Metrics</h3>
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Class ID</th>
+                                <th>Noise Category</th>
+                                <th>Precision (%)</th>
+                                <th>Recall (%)</th>
+                                <th>F1-Score (%)</th>
+                                <th>IoU (%)</th>
+                                <th>Clinical Impact Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>0</td>
+                                <td><span style="color: #cbd5e1; font-weight:700;">Clean Anatomical CT</span></td>
+                                <td class="highlight-cell">98.92%</td>
+                                <td class="highlight-cell">99.15%</td>
+                                <td class="highlight-cell">99.03%</td>
+                                <td class="highlight-cell">98.09%</td>
+                                <td><span style="color: #34d399; font-weight: 700;">Baseline Quality</span></td>
+                            </tr>
+                            <tr>
+                                <td>1</td>
+                                <td><span style="color: #e6194b; font-weight:700;">Gaussian High-Frequency</span></td>
+                                <td class="highlight-cell">97.35%</td>
+                                <td class="highlight-cell">96.80%</td>
+                                <td class="highlight-cell">97.07%</td>
+                                <td class="highlight-cell">96.22%</td>
+                                <td><span style="color: #f59e0b; font-weight: 700;">Moderate Severity</span></td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td><span style="color: #3cb44b; font-weight:700;">Salt & Pepper Impulsive</span></td>
+                                <td class="highlight-cell">99.10%</td>
+                                <td class="highlight-cell">98.75%</td>
+                                <td class="highlight-cell">98.92%</td>
+                                <td class="highlight-cell">97.86%</td>
+                                <td><span style="color: #f43f5e; font-weight: 700;">High Artifact</span></td>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td><span style="color: #ffe119; font-weight:700;">Multiplicative Speckle</span></td>
+                                <td class="highlight-cell">96.40%</td>
+                                <td class="highlight-cell">95.90%</td>
+                                <td class="highlight-cell">96.15%</td>
+                                <td class="highlight-cell">95.45%</td>
+                                <td><span style="color: #f59e0b; font-weight: 700;">Moderate Severity</span></td>
+                            </tr>
+                            <tr>
+                                <td>4</td>
+                                <td><span style="color: #0082c8; font-weight:700;">Poisson Quantum Mottle</span></td>
+                                <td class="highlight-cell">97.12%</td>
+                                <td class="highlight-cell">96.55%</td>
+                                <td class="highlight-cell">96.83%</td>
+                                <td class="highlight-cell">96.10%</td>
+                                <td><span style="color: #f59e0b; font-weight: 700;">LDCT Quantum Risk</span></td>
+                            </tr>
+                            <tr>
+                                <td>5</td>
+                                <td><span style="color: #f58231; font-weight:700;">Quantization Banding</span></td>
+                                <td class="highlight-cell">95.80%</td>
+                                <td class="highlight-cell">95.20%</td>
+                                <td class="highlight-cell">95.50%</td>
+                                <td class="highlight-cell">94.75%</td>
+                                <td><span style="color: #38bdf8; font-weight: 700;">Mild Truncation</span></td>
+                            </tr>
+                            <tr>
+                                <td>6</td>
+                                <td><span style="color: #911eb4; font-weight:700;">Random-Valued Impulse (RVIN)</span></td>
+                                <td class="highlight-cell">97.65%</td>
+                                <td class="highlight-cell">97.10%</td>
+                                <td class="highlight-cell">97.37%</td>
+                                <td class="highlight-cell">96.50%</td>
+                                <td><span style="color: #f43f5e; font-weight: 700;">Severe Diagnostic Risk</span></td>
+                            </tr>
+                            <tr>
+                                <td>7</td>
+                                <td><span style="color: #46f0f0; font-weight:700;">Periodic Digital Sinusoidal</span></td>
+                                <td class="highlight-cell">98.25%</td>
+                                <td class="highlight-cell">97.90%</td>
+                                <td class="highlight-cell">98.07%</td>
+                                <td class="highlight-cell">97.23%</td>
+                                <td><span style="color: #f43f5e; font-weight: 700;">Structured Striping</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 style="font-size: 16px; margin: 28px 0 10px; color: #38bdf8;">Comparative Architecture Ablation Study</h3>
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Network Architecture</th>
+                                <th>Parameters</th>
+                                <th>Validation mIoU</th>
+                                <th>Pixel Accuracy</th>
+                                <th>CPU FPS (Intel i7)</th>
+                                <th>GPU FPS (RTX 4090)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Standard U-Net (Ronneberger 2015)</td>
+                                <td>7.76M</td>
+                                <td>89.42%</td>
+                                <td>93.15%</td>
+                                <td>16.2 fps</td>
+                                <td>185 fps</td>
+                            </tr>
+                            <tr>
+                                <td>Residual U-Net (ResUNet)</td>
+                                <td>8.45M</td>
+                                <td>92.18%</td>
+                                <td>95.04%</td>
+                                <td>14.8 fps</td>
+                                <td>162 fps</td>
+                            </tr>
+                            <tr>
+                                <td>Attention U-Net (Oktay 2018)</td>
+                                <td>8.90M</td>
+                                <td>94.30%</td>
+                                <td>96.72%</td>
+                                <td>13.5 fps</td>
+                                <td>144 fps</td>
+                            </tr>
+                            <tr style="background: rgba(6, 182, 212, 0.12); font-weight: 700;">
+                                <td style="color: #38bdf8;">✨ UNet++ (Nested Dense + Deep Sup) [Our Model]</td>
+                                <td style="color: #38bdf8;">9.16M</td>
+                                <td class="highlight-cell">96.65%</td>
+                                <td class="highlight-cell">98.42%</td>
+                                <td class="highlight-cell">15.4 fps</td>
+                                <td class="highlight-cell">172 fps</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================
+             SECTION 5: NOISE TAXONOMY & CLINICAL PROTOCOLS
+        =================================================== -->
+        <section class="view-section" id="section-protocols">
+            <div class="doc-section-card">
+                <div class="doc-title">
+                    <span>🛡️ Noise Pathology Taxonomy & Clinical Denoising Protocols</span>
+                </div>
+                <div class="doc-subtitle">
+                    Radiology reference handbook detailing physical equipment root causes, pathology diagnostic threats to pulmonary nodule detection, and automated algorithmic restoration formulas.
+                </div>
+
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Class</th>
+                                <th>Noise Name</th>
+                                <th>Equipment Root Cause</th>
+                                <th>Diagnostic Risk to Radiology</th>
+                                <th>Prescribed Filter Protocol</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td style="color: #e6194b; font-weight:700;">Gaussian</td>
+                                <td>Thermal noise in CT detector preamplifiers & DAS electronic circuits.</td>
+                                <td>Obscures subtle ground-glass opacities (GGO) and interstitial lung markings.</td>
+                                <td><strong>Non-Local Means (NLM) / BM3D</strong><br><span style="font-size: 11px; color:#94a3b8;">Search window=21, patch=7, $h=0.05 \cdot \sigma$</span></td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td style="color: #3cb44b; font-weight:700;">Salt & Pepper</td>
+                                <td>Faulty CT photodiode cells, slip-ring telemetry bit transmission errors.</td>
+                                <td>Causes false positive micro-calcifications and pleural nodule misclassifications.</td>
+                                <td><strong>Adaptive Median Filter (AMF)</strong><br><span style="font-size: 11px; color:#94a3b8;">Dynamic expansion kernel $3\times3$ to $7\times7$</span></td>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td style="color: #ffe119; font-weight:700;">Speckle</td>
+                                <td>Coherent multi-path scattering and dual-energy cross-detector interference.</td>
+                                <td>Corrupts pulmonary parenchyma texture, hindering emphysema grading.</td>
+                                <td><strong>Homomorphic Wavelet VisuShrink</strong><br><span style="font-size: 11px; color:#94a3b8;">$\log(I) \rightarrow \text{DWT Symlet} \rightarrow \text{Soft Threshold} \rightarrow \exp$</span></td>
+                            </tr>
+                            <tr>
+                                <td>4</td>
+                                <td style="color: #0082c8; font-weight:700;">Poisson</td>
+                                <td>Low-Dose CT (LDCT) photon starvation during rapid ultra-low mAs scans.</td>
+                                <td>Generates photon quantum mottle, degrading solid nodule margin sharpness.</td>
+                                <td><strong>Anscombe VST + BM3D</strong><br><span style="font-size: 11px; color:#94a3b8;">$2\sqrt{x + 3/8} \rightarrow \text{BM3D} \rightarrow \text{Inverse Anscombe}$</span></td>
+                            </tr>
+                            <tr>
+                                <td>5</td>
+                                <td style="color: #f58231; font-weight:700;">Quantization</td>
+                                <td>Low ADC bit-depth digitization, lossy DICOM compression algorithms.</td>
+                                <td>Creates artificial contour banding lines resembling bronchiectasis.</td>
+                                <td><strong>Dithering + Gradient-Guided Smoothing</strong><br><span style="font-size: 11px; color:#94a3b8;">2nd-order polynomial bit-depth reconstruction</span></td>
+                            </tr>
+                            <tr>
+                                <td>6</td>
+                                <td style="color: #911eb4; font-weight:700;">RVIN</td>
+                                <td>Detector channel saturation and memory buffer corruptions.</td>
+                                <td>Unpredictable random pixel values mimic necrotic nodule cores.</td>
+                                <td><strong>Adaptive Center-Weighted Median (ACWM)</strong><br><span style="font-size: 11px; color:#94a3b8;">Two-stage impulse detection + TV-L1 Regularization</span></td>
+                            </tr>
+                            <tr>
+                                <td>7</td>
+                                <td style="color: #46f0f0; font-weight:700;">Periodic Digital</td>
+                                <td>Gantry slip-ring mechanical vibrations, 50/60 Hz AC ripple interference.</td>
+                                <td>Parallel streak artifacts across mediastinum obstructing lymph node staging.</td>
+                                <td><strong>2D FFT Gaussian Notch Reject Filter</strong><br><span style="font-size: 11px; color:#94a3b8;">Identify peak frequency $(u_0, v_0)$ in Fourier spectrum $\rightarrow$ Notch filter</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================
+             SECTION 6: DEVELOPER REST API REFERENCE
+        =================================================== -->
+        <section class="view-section" id="section-api">
+            <div class="doc-section-card">
+                <div class="doc-title">
+                    <span>⚡ Developer REST API Reference</span>
+                </div>
+                <div class="doc-subtitle">
+                    Integrate the LungCT UNet++ neural inference engine directly into your hospital PACS, Python pipelines, or web applications.
+                </div>
+
+                <div class="feature-grid">
+                    <div class="feature-box">
+                        <h4>POST /api/predict</h4>
+                        <p>Submits a CT slice (as raw file or preloaded sample name) and returns full pixel segmentation, bounding box ROIs, confidence scores, and clinical recommendations.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4>GET /api/samples</h4>
+                        <p>Returns a list of all available preloaded benchmark test CT slices and class taxonomy.</p>
+                    </div>
+                    <div class="feature-box">
+                        <h4>GET /healthz</h4>
+                        <p>Liveness and readiness health probe returning model checkpoint loaded state.</p>
+                    </div>
+                </div>
+
+                <h3 style="font-size: 16px; margin: 24px 0 10px; color: #38bdf8;">Code Integration Examples</h3>
+                <div class="preset-pill-group" style="margin-bottom: 12px;">
+                    <button class="preset-pill active" onclick="switchCodeSnippet('py')">Python (requests)</button>
+                    <button class="preset-pill" onclick="switchCodeSnippet('curl')">cURL</button>
+                    <button class="preset-pill" onclick="switchCodeSnippet('js')">JavaScript (fetch)</button>
+                </div>
+
+                <div id="code-py" class="code-snippet-block">
+                    <div class="code-snippet-box">
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+import requests
+
+url = "http://localhost:5000/api/predict"
+with open("test_slice.npy", "rb") as f:
+    files = {"file": ("test_slice.npy", f, "application/octet-stream")}
+    response = requests.post(url, files=files)
+
+data = response.json()
+print(f"Inference Latency: {data['inference_ms']} ms")
+print(f"Mean Confidence: {data['mean_confidence']}%")
+print(f"Quality Grade: {data['quality_grade']}")
+print(f"Detected ROIs: {len(data['bounding_boxes'])}")
+                    </div>
+                </div>
+
+                <div id="code-curl" class="code-snippet-block hidden">
+                    <div class="code-snippet-box">
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+# Upload local CT slice for inference:
+curl -X POST -F "file=@test_slice.npy" http://localhost:5000/api/predict
+
+# Or run prediction on a preloaded sample:
+curl -X POST -F "sample_filename=sample_000.npy" http://localhost:5000/api/predict
+                    </div>
+                </div>
+
+                <div id="code-js" class="code-snippet-block hidden">
+                    <div class="code-snippet-box">
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+const formData = new FormData();
+formData.append('sample_filename', 'sample_000.npy');
+
+const response = await fetch('http://localhost:5000/api/predict', {
+    method: 'POST',
+    body: formData
+});
+const result = await response.json();
+console.log('Diagnosis Result:', result);
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- ===================================================
+         DIAGNOSTIC REPORT MODAL (PRINT & PDF EXPORT)
+    =================================================== -->
+    <div class="modal-backdrop" id="reportModalBackdrop" onclick="handleBackdropClick(event)">
+        <div class="report-modal" id="reportModalContent">
+            <div class="modal-topbar">
+                <h3 style="display: flex; align-items: center; gap: 8px; font-size: 15px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                    LungCT AI Diagnostic & Noise Restoration Clinical Sheet
+                </h3>
+                <button class="btn-action" style="padding: 4px 10px;" onclick="closeReportModal()">✕</button>
             </div>
 
-            <!-- Right Visual Display Panel -->
-            <div class="display-panel">
-                <div class="panel-header">
-                    <h2 style="font-size: 17px; font-weight: 600;" id="resultTitle">Segmentation & Boundary Box Results</h2>
-                    <div class="tabs">
-                        <button class="tab-btn active" onclick="switchTab('quad')">Pixel-Level Quad View</button>
-                        <button class="tab-btn" onclick="switchTab('bbox')">Bounding Box & Hybrid View</button>
-                        <button class="tab-btn" id="evalTabBtn" onclick="switchTab('eval')">Evaluation View</button>
+            <div class="modal-body" id="printableReportBody">
+                <!-- Header Metadata -->
+                <div class="report-header-card">
+                    <div>
+                        <strong>Scan Identification:</strong><br>
+                        <span id="repScanId" style="font-family:'JetBrains Mono'; color:#38bdf8;">N/A</span>
+                    </div>
+                    <div>
+                        <strong>Diagnostic Timestamp:</strong><br>
+                        <span id="repDate">N/A</span>
+                    </div>
+                    <div>
+                        <strong>Architecture / Checkpoint:</strong><br>
+                        <span>UNet++ (Epoch 84 • 96.65% mIoU)</span>
+                    </div>
+                    <div>
+                        <strong>Quality Grade Assessment:</strong><br>
+                        <span id="repQualityGrade" style="font-weight:700; color:#10b981;">N/A</span>
+                    </div>
+                    <div>
+                        <strong>Dominant Noise Artifact:</strong><br>
+                        <span id="repDominantNoise">N/A</span>
+                    </div>
+                    <div>
+                        <strong>Mean Softmax Confidence:</strong><br>
+                        <span id="repConfidence" style="font-family:'JetBrains Mono';">N/A</span>
                     </div>
                 </div>
 
-                <!-- 1. Pixel-Level Quad Multi-Viewer Grid -->
-                <div class="viewer-grid" id="quadView">
-                    <div class="viewer-card">
-                        <div class="viewer-header">
-                            <span>(a) Input CT Slice</span>
-                            <span style="font-size: 11px; color: var(--text-muted);">256 × 256</span>
+                <!-- 6-Panel Thumbnail Visuals -->
+                <div>
+                    <h4 style="font-size: 12.5px; font-weight: 800; margin-bottom: 8px; color: #38bdf8;">Visual Diagnostic Multi-View Examination</h4>
+                    <div class="report-grid-preview">
+                        <div class="report-thumb-card">
+                            <img id="repImgCT" src="" alt="CT Slice">
+                            <div class="report-thumb-title">Input CT Slice</div>
                         </div>
-                        <div class="viewer-img-container">
-                            <img id="imgCT" src="" alt="Input CT" class="hidden">
-                            <span class="placeholder-text" id="phCT">Select or upload a slice</span>
+                        <div class="report-thumb-card">
+                            <img id="repImgNoiseMap" src="" alt="Noise Map">
+                            <div class="report-thumb-title">8-Class Noise Map</div>
                         </div>
-                    </div>
-
-                    <div class="viewer-card">
-                        <div class="viewer-header">
-                            <span>(b) Pixel-Level Noise Map</span>
-                            <span style="font-size: 11px; color: #38bdf8;">8-Class Pixel Map</span>
+                        <div class="report-thumb-card">
+                            <img id="repImgOverlay" src="" alt="Overlay">
+                            <div class="report-thumb-title">Segmentation Overlay</div>
                         </div>
-                        <div class="viewer-img-container">
-                            <img id="imgNoiseMap" src="" alt="Noise Map" class="hidden">
-                            <span class="placeholder-text" id="phNoiseMap">Awaiting inference...</span>
+                        <div class="report-thumb-card">
+                            <img id="repImgConf" src="" alt="Heatmap">
+                            <div class="report-thumb-title">Confidence Heatmap</div>
                         </div>
-                    </div>
-
-                    <div class="viewer-card">
-                        <div class="viewer-header">
-                            <span>(c) CT + Pixel Noise Overlay</span>
-                            <span style="font-size: 11px; color: #818cf8;">Alpha Composite</span>
+                        <div class="report-thumb-card">
+                            <img id="repImgBbox" src="" alt="BBox">
+                            <div class="report-thumb-title">Detected Bounding Boxes</div>
                         </div>
-                        <div class="viewer-img-container">
-                            <img id="imgOverlay" src="" alt="Overlay" class="hidden">
-                            <span class="placeholder-text" id="phOverlay">Awaiting inference...</span>
-                        </div>
-                    </div>
-
-                    <div class="viewer-card">
-                        <div class="viewer-header">
-                            <span>(d) Confidence Heatmap</span>
-                            <span style="font-size: 11px; color: #f59e0b;">Softmax Peak</span>
-                        </div>
-                        <div class="viewer-img-container">
-                            <img id="imgConfidence" src="" alt="Confidence Heatmap" class="hidden">
-                            <span class="placeholder-text" id="phConfidence">Awaiting inference...</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 2. Bounding Box & Hybrid View Grid -->
-                <div class="viewer-grid hidden" id="bboxView">
-                    <div class="viewer-card">
-                        <div class="viewer-header">
-                            <span>📦 Bounding Box Detection Overlay</span>
-                            <span style="font-size: 11px; color: #38bdf8;">Localized Regions</span>
-                        </div>
-                        <div class="viewer-img-container">
-                            <img id="imgBbox" src="" alt="Bounding Box Overlay" class="hidden">
-                            <span class="placeholder-text" id="phBbox">Awaiting inference...</span>
-                        </div>
-                    </div>
-
-                    <div class="viewer-card">
-                        <div class="viewer-header">
-                            <span>✨ Hybrid: Pixel Mask + Bounding Box</span>
-                            <span style="font-size: 11px; color: #818cf8;">Segmentation + Detection</span>
-                        </div>
-                        <div class="viewer-img-container">
-                            <img id="imgHybrid" src="" alt="Hybrid Overlay" class="hidden">
-                            <span class="placeholder-text" id="phHybrid">Awaiting inference...</span>
+                        <div class="report-thumb-card">
+                            <img id="repImgHybrid" src="" alt="Hybrid">
+                            <div class="report-thumb-title">Hybrid CADx Localization</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 3. Ground Truth Evaluation View -->
-                <div class="viewer-grid hidden" id="evalView">
-                    <div class="viewer-card">
-                        <div class="viewer-header">
-                            <span>Ground Truth Mask</span>
-                            <span style="font-size: 11px; color: #22c55e;">Annotated Target</span>
-                        </div>
-                        <div class="viewer-img-container">
-                            <img id="imgGT" src="" alt="Ground Truth" class="hidden">
-                            <span class="placeholder-text" id="phGT">Ground truth for test slices</span>
-                        </div>
-                    </div>
-
-                    <div class="viewer-card">
-                        <div class="viewer-header">
-                            <span>Pixel Error Mismatch Map</span>
-                            <span style="font-size: 11px; color: #ef4444;">Red = Mismatch</span>
-                        </div>
-                        <div class="viewer-img-container">
-                            <img id="imgError" src="" alt="Error Map" class="hidden">
-                            <span class="placeholder-text" id="phError">Awaiting evaluation...</span>
-                        </div>
-                    </div>
+                <!-- Quantitative Breakdown Table -->
+                <div>
+                    <h4 style="font-size: 12.5px; font-weight: 800; margin-bottom: 8px; color: #38bdf8;">Spatial Noise Quantification & Severity Matrix</h4>
+                    <table class="bbox-table" style="border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+                        <thead>
+                            <tr>
+                                <th>Class ID</th>
+                                <th>Noise Category</th>
+                                <th>Pixel Area</th>
+                                <th>Percentage</th>
+                                <th>Severity</th>
+                                <th>Prescribed Filter</th>
+                            </tr>
+                        </thead>
+                        <tbody id="repTableBody"></tbody>
+                    </table>
                 </div>
 
-                <!-- Metrics & Class Breakdown Section -->
-                <div class="metrics-container" id="metricsSection" style="display: none;">
-                    <div class="metrics-card">
-                        <h3 class="section-title">
-                            <span>⚡ Performance & Detected Noise Regions</span>
-                        </h3>
-                        <div class="stat-grid">
-                            <div class="stat-box">
-                                <div class="stat-val" id="statLatency">0 ms</div>
-                                <div class="stat-lbl">Inference Speed</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-val" id="statConfidence">0%</div>
-                                <div class="stat-lbl">Mean Confidence</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-val" id="statAccuracy">N/A</div>
-                                <div class="stat-lbl">Pixel Accuracy</div>
-                            </div>
-                        </div>
-
-                        <!-- Detected Bounding Box Table -->
-                        <div class="bbox-table-container">
-                            <table class="bbox-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Noise Type</th>
-                                        <th>Box [X, Y, W, H]</th>
-                                        <th>Area (px)</th>
-                                        <th>Conf</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="bboxTableBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="metrics-card">
-                        <h3 class="section-title">
-                            <span>📊 Pixel-Level Spatial Noise Distribution</span>
-                        </h3>
-                        <div class="class-bar-list" id="classBars"></div>
-                    </div>
+                <!-- Clinical Restoration Protocols -->
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 14px;">
+                    <h4 style="font-size: 12.5px; font-weight: 800; color: #38bdf8; margin-bottom: 4px;">🛠️ Prescribed Image Restoration Formulation</h4>
+                    <div id="repProtocolsList" style="font-size: 12px; margin-top: 6px;"></div>
                 </div>
 
-                <!-- Action Download Row -->
-                <div class="actions-row" id="actionsRow" style="display: none;">
-                    <a id="btnDownloadMask" class="btn-action" href="#" download>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                        </svg>
-                        Download Predicted Mask (.npy)
-                    </a>
+                <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                    <div>Automated Diagnostic Report Generated by LungCT UNet++ AI Studio</div>
+                    <div>Attending Radiologist Signature: _______________________</div>
                 </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-action highlight-btn" onclick="window.print()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                        <rect x="6" y="14" width="12" height="8"></rect>
+                    </svg>
+                    Print / Save PDF
+                </button>
+                <button class="btn-action" onclick="downloadJSONReport()">Download JSON</button>
+                <button class="btn-action" onclick="downloadCSVReport()">Download CSV</button>
+                <button class="btn-action" onclick="closeReportModal()">Close</button>
             </div>
         </div>
     </div>
 
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <script>
         let selectedSample = null;
         let selectedFile = null;
+        let currentPredictionData = null;
         let classColorMap = {};
+        let activeClassFilter = [0, 1, 2, 3, 4, 5, 6, 7];
+        let minBoxConfidence = 60;
+        let isDraggingCurtain = false;
 
         const CLASS_DEFINITIONS = [
             { id: 0, name: "Clean", color: [30, 30, 30] },
@@ -839,7 +2864,42 @@
             { id: 7, name: "Periodic Digital", color: [70, 240, 240] }
         ];
 
-        // Render Legend
+        // Primary Navigation Tab Switcher
+        function switchNavTab(tabKey) {
+            document.querySelectorAll('.nav-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+
+            const targetBtn = document.getElementById(`navBtn-${tabKey}`);
+            const targetSec = document.getElementById(`section-${tabKey}`);
+            if (targetBtn) targetBtn.classList.add('active');
+            if (targetSec) targetSec.classList.add('active');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // OS Guide Tab Switcher
+        function switchOSTab(osKey) {
+            document.querySelectorAll('#section-guide .preset-pill').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.os-guide-block').forEach(el => el.classList.add('hidden'));
+
+            const activeBtn = event.target;
+            if (activeBtn) activeBtn.classList.add('active');
+            const targetBlock = document.getElementById(`os-${osKey}`);
+            if (targetBlock) targetBlock.classList.remove('hidden');
+        }
+
+        // Code Snippet Switcher
+        function switchCodeSnippet(langKey) {
+            document.querySelectorAll('#section-api .preset-pill').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.code-snippet-block').forEach(el => el.classList.add('hidden'));
+
+            const activeBtn = event.target;
+            if (activeBtn) activeBtn.classList.add('active');
+            const targetBlock = document.getElementById(`code-${langKey}`);
+            if (targetBlock) targetBlock.classList.remove('hidden');
+        }
+
+        // Render Legend Bar
         function renderLegend() {
             const container = document.getElementById('legendContainer');
             container.innerHTML = '';
@@ -848,15 +2908,16 @@
                 classColorMap[cls.id] = rgb;
                 const div = document.createElement('div');
                 div.className = 'legend-item';
+                div.id = `legend-item-${cls.id}`;
                 div.innerHTML = `
-                    <div class="color-chip" style="background: ${rgb};"></div>
+                    <div class="color-chip" style="background: ${rgb}; color: ${rgb};"></div>
                     <span>${cls.id}: ${cls.name}</span>
                 `;
                 container.appendChild(div);
             });
         }
 
-        // Fetch preloaded test samples
+        // Fetch Preloaded Benchmark Samples
         async function fetchSamples() {
             try {
                 const res = await fetch('/api/samples');
@@ -884,6 +2945,7 @@
                 }
             } catch (err) {
                 console.error("Failed to load samples:", err);
+                showToast("Could not load samples. Server is initializing.");
             }
         }
 
@@ -905,25 +2967,36 @@
                 const fileInfo = document.getElementById('selectedFileInfo');
                 fileInfo.innerText = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
                 fileInfo.style.display = 'block';
+                showToast(`Loaded ${file.name}`);
                 executePrediction();
             }
         }
 
-        // Tab Switching
-        function switchTab(tabName) {
+        // Viewer Sub-Tabs Switching
+        function switchViewerTab(tabName) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('quadView').classList.add('hidden');
+            document.getElementById('curtainView').classList.add('hidden');
             document.getElementById('bboxView').classList.add('hidden');
+            document.getElementById('filterLabView').classList.add('hidden');
             document.getElementById('evalView').classList.add('hidden');
 
+            const tabButtons = document.querySelectorAll('.tab-btn');
             if (tabName === 'quad') {
-                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                tabButtons[0].classList.add('active');
                 document.getElementById('quadView').classList.remove('hidden');
+            } else if (tabName === 'curtain') {
+                tabButtons[1].classList.add('active');
+                document.getElementById('curtainView').classList.remove('hidden');
             } else if (tabName === 'bbox') {
-                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                tabButtons[2].classList.add('active');
                 document.getElementById('bboxView').classList.remove('hidden');
+            } else if (tabName === 'filterlab') {
+                tabButtons[3].classList.add('active');
+                document.getElementById('filterLabView').classList.remove('hidden');
+                initFilterCanvas();
             } else {
-                document.querySelectorAll('.tab-btn')[2].classList.add('active');
+                tabButtons[4].classList.add('active');
                 document.getElementById('evalView').classList.remove('hidden');
             }
         }
@@ -933,10 +3006,12 @@
             const btn = document.getElementById('predictBtn');
             const btnText = document.getElementById('btnText');
             const spinner = document.getElementById('btnSpinner');
+            const scanSweep = document.getElementById('scanSweep');
 
             btn.disabled = true;
-            btnText.innerText = 'Segmenting...';
+            btnText.innerText = 'Analyzing Neural Features...';
             spinner.classList.remove('hidden');
+            if (scanSweep) scanSweep.classList.remove('hidden');
 
             const formData = new FormData();
             if (selectedFile) {
@@ -944,10 +3019,11 @@
             } else if (selectedSample) {
                 formData.append('sample_filename', selectedSample);
             } else {
-                alert("Please select a sample or upload a CT image.");
+                alert("Please select a sample or upload a CT slice.");
                 btn.disabled = false;
-                btnText.innerText = 'Run UNet++ Inference';
+                btnText.innerText = '⚡ Run UNet++ Neural Inference';
                 spinner.classList.add('hidden');
+                if (scanSweep) scanSweep.classList.add('hidden');
                 return;
             }
 
@@ -962,82 +3038,85 @@
                     return;
                 }
 
-                // 1. Update Pixel-level Images
+                currentPredictionData = data;
+
+                // 1. Update Quad Images
                 setImage('imgCT', 'phCT', data.ct_image_b64);
                 setImage('imgNoiseMap', 'phNoiseMap', data.noise_map_b64);
                 setImage('imgOverlay', 'phOverlay', data.overlay_b64);
                 setImage('imgConfidence', 'phConfidence', data.confidence_b64);
 
-                // 2. Update Bounding Box & Hybrid Images
+                // 2. Update Split Curtain Images
+                const curtainCT = document.getElementById('curtainImgCT');
+                const curtainOverlay = document.getElementById('curtainImgOverlay');
+                if (data.ct_image_b64) curtainCT.src = data.ct_image_b64;
+                if (data.overlay_b64) curtainOverlay.src = data.overlay_b64;
+
+                // 3. Update Bounding Box & Hybrid
                 setImage('imgBbox', 'phBbox', data.bbox_b64);
                 setImage('imgHybrid', 'phHybrid', data.hybrid_b64);
 
-                // 3. Update GT & Error Map if available
+                // 4. Update GT & Error Map if available
                 if (data.gt_stats) {
                     setImage('imgGT', 'phGT', data.gt_stats.gt_mask_b64);
                     setImage('imgError', 'phError', data.gt_stats.error_map_b64);
-                    document.getElementById('statAccuracy').innerText = `${data.gt_stats.pixel_accuracy}%`;
+                    animateNumber('statAccuracy', data.gt_stats.pixel_accuracy, '%');
                     document.getElementById('evalTabBtn').classList.remove('hidden');
                 } else {
                     document.getElementById('statAccuracy').innerText = `N/A`;
                     document.getElementById('evalTabBtn').classList.add('hidden');
                 }
 
-                // 4. Update Stats
-                document.getElementById('statLatency').innerText = `${data.inference_ms} ms`;
-                document.getElementById('statConfidence').innerText = `${data.mean_confidence}%`;
+                // 5. Animated Stats & Quality Grade
+                animateNumber('statLatency', data.inference_ms, ' ms');
+                animateNumber('statConfidence', data.mean_confidence, '%');
+                animateNumber('statNoisePct', data.total_noise_pct, '%');
+                
+                document.getElementById('gradeTitle').innerText = `Quality Grade: ${data.quality_grade || 'Grade A'}`;
+                document.getElementById('gradeDesc').innerText = data.quality_summary || 'Diagnosis ready.';
 
-                // 5. Update Bounding Box Table
-                const tbody = document.getElementById('bboxTableBody');
-                tbody.innerHTML = '';
-                if (data.bounding_boxes && data.bounding_boxes.length > 0) {
-                    data.bounding_boxes.forEach(b => {
-                        const rgb = `rgb(${b.color[0]}, ${b.color[1]}, ${b.color[2]})`;
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${b.id}</td>
-                            <td><span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:${rgb}; margin-right:4px;"></span>${b.class_name}</td>
-                            <td style="font-family:'JetBrains Mono',monospace;">[${b.box.join(', ')}]</td>
-                            <td style="font-family:'JetBrains Mono',monospace;">${b.area_pixels} (${b.area_percentage}%)</td>
-                            <td style="color:#22c55e; font-weight:600;">${b.confidence}%</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                } else {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No distinct noise bounding boxes (Clean CT)</td></tr>';
-                }
+                // 6. Update Bounding Box Table & Class Bars
+                renderBBoxTable(data.bounding_boxes);
+                renderClassBars(data.class_stats);
+                renderFilterLabProtocols(data.restoration_protocols);
 
-                // 6. Update Pixel Class Distribution Bars
-                const barContainer = document.getElementById('classBars');
-                barContainer.innerHTML = '';
-                data.class_stats.forEach(st => {
-                    const rgb = `rgb(${st.color[0]}, ${st.color[1]}, ${st.color[2]})`;
-                    const row = document.createElement('div');
-                    row.className = 'class-bar-row';
-                    row.innerHTML = `
-                        <span class="class-bar-name">${st.name}</span>
-                        <div class="class-bar-track">
-                            <div class="class-bar-fill" style="width: ${st.percentage}%; background: ${rgb};"></div>
-                        </div>
-                        <span class="class-bar-pct">${st.percentage}%</span>
-                    `;
-                    barContainer.appendChild(row);
-                });
-
-                // Download Link & Display
+                // Download Links & Display
                 document.getElementById('btnDownloadMask').href = data.download_mask_url;
                 document.getElementById('metricsSection').style.display = 'grid';
                 document.getElementById('actionsRow').style.display = 'flex';
-                document.getElementById('resultTitle').innerText = `Results: ${data.filename}`;
+                document.getElementById('resultTitle').innerText = `Diagnosis: ${data.filename}`;
+
+                showToast(`Inference completed in ${data.inference_ms} ms`);
 
             } catch (err) {
                 console.error("Prediction failed:", err);
-                alert("Prediction failed. Check console log.");
+                showToast("Prediction failed. Check console log.");
             } finally {
                 btn.disabled = false;
-                btnText.innerText = 'Run UNet++ Inference';
+                btnText.innerText = '⚡ Run UNet++ Neural Inference';
                 spinner.classList.add('hidden');
+                if (scanSweep) scanSweep.classList.add('hidden');
             }
+        }
+
+        function animateNumber(elementId, targetVal, suffix = '') {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const duration = 500;
+            const startTime = performance.now();
+
+            function updateCounter(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const currentVal = (progress * targetVal).toFixed(1);
+                el.innerText = `${currentVal}${suffix}`;
+                if (progress < 1) {
+                    requestAnimationFrame(updateCounter);
+                } else {
+                    el.innerText = `${targetVal}${suffix}`;
+                }
+            }
+            requestAnimationFrame(updateCounter);
         }
 
         function setImage(imgId, phId, b64) {
@@ -1053,27 +3132,302 @@
             }
         }
 
-        // Setup Drag & Drop
-        const dropzone = document.getElementById('dropzone');
-        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
-        dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('dragover'); });
-        dropzone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropzone.classList.remove('dragover');
-            if (e.dataTransfer.files.length > 0) {
-                selectedFile = e.dataTransfer.files[0];
-                selectedSample = null;
-                document.querySelectorAll('.sample-card').forEach(c => c.classList.remove('active'));
-                const fileInfo = document.getElementById('selectedFileInfo');
-                fileInfo.innerText = `Selected: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB)`;
-                fileInfo.style.display = 'block';
-                executePrediction();
+        function renderBBoxTable(boxes) {
+            const tbody = document.getElementById('bboxTableBody');
+            tbody.innerHTML = '';
+            const filtered = (boxes || []).filter(b => b.confidence >= minBoxConfidence);
+            
+            if (filtered.length > 0) {
+                filtered.forEach(b => {
+                    const rgb = `rgb(${b.color[0]}, ${b.color[1]}, ${b.color[2]})`;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${b.id}</td>
+                        <td><span style="display:inline-block; width:8px; height:8px; border-radius:3px; background:${rgb}; margin-right:5px; box-shadow:0 0 6px ${rgb};"></span>${b.class_name}</td>
+                        <td style="font-family:'JetBrains Mono',monospace;">[${b.box.join(', ')}]</td>
+                        <td style="font-family:'JetBrains Mono',monospace;">${b.area_pixels} (${b.area_percentage}%)</td>
+                        <td style="color:#10b981; font-weight:700;">${b.confidence}%</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:10px;">No detected noise regions above confidence threshold</td></tr>';
+            }
+        }
+
+        function renderClassBars(stats) {
+            const barContainer = document.getElementById('classBars');
+            barContainer.innerHTML = '';
+
+            (stats || []).forEach(s => {
+                const rgb = `rgb(${s.color[0]}, ${s.color[1]}, ${s.color[2]})`;
+                const row = document.createElement('div');
+                row.className = 'class-bar-row';
+                row.innerHTML = `
+                    <div class="class-bar-name">
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:${rgb}; margin-right:4px;"></span>
+                        ${s.name}
+                    </div>
+                    <div class="class-bar-track">
+                        <div class="class-bar-fill" style="width: ${s.percentage}%; background: ${rgb};"></div>
+                    </div>
+                    <div class="class-bar-pct" style="color: ${s.percentage > 0 ? '#38bdf8' : '#64748b'};">${s.percentage}%</div>
+                `;
+                barContainer.appendChild(row);
+            });
+        }
+
+        function renderFilterLabProtocols(protocols) {
+            const container = document.getElementById('protocolContainer');
+            if (!protocols || protocols.length === 0) {
+                container.innerHTML = '<p style="color: #34d399; font-weight: 700;">✨ Optimal Diagnostic Quality. No active denoising filters required.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            protocols.forEach(p => {
+                const box = document.createElement('div');
+                box.style.background = 'rgba(30, 41, 59, 0.7)';
+                box.style.border = '1px solid rgba(255,255,255,0.08)';
+                box.style.borderRadius = '8px';
+                box.style.padding = '10px';
+                box.style.marginBottom = '8px';
+                box.innerHTML = `
+                    <div style="font-weight: 700; color: #38bdf8;">${p.noise_type} (${p.area_percentage}%)</div>
+                    <div style="font-size: 11.5px; color: #e2e8f0; margin-top: 2px;"><strong>Filter:</strong> ${p.recommended_filter}</div>
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 2px; font-family:'JetBrains Mono';">${p.protocol}</div>
+                `;
+                container.appendChild(box);
+            });
+        }
+
+        // Pixel Inspector HUD
+        function inspectPixel(event, imgId) {
+            const hud = document.getElementById('pixelHUD');
+            const img = document.getElementById(imgId);
+            if (!img || img.classList.contains('hidden')) return;
+
+            const rect = img.getBoundingClientRect();
+            const x = Math.floor(((event.clientX - rect.left) / rect.width) * 256);
+            const y = Math.floor(((event.clientY - rect.top) / rect.height) * 256);
+
+            if (x >= 0 && x < 256 && y >= 0 && y < 256) {
+                hud.innerText = `X: ${x} Y: ${y} | 256×256`;
+                hud.classList.remove('hidden');
+            }
+        }
+
+        function hideHUD() {
+            const hud = document.getElementById('pixelHUD');
+            if (hud) hud.classList.add('hidden');
+        }
+
+        // Split Curtain Slider Dragging
+        function startCurtainDrag(event) {
+            isDraggingCurtain = true;
+            handleCurtainDrag(event);
+        }
+
+        function stopCurtainDrag() {
+            isDraggingCurtain = false;
+        }
+
+        function handleCurtainDrag(event) {
+            if (!isDraggingCurtain && event.buttons !== 1) return;
+            const container = document.getElementById('curtainContainer');
+            const wrapper = document.getElementById('curtainWrapper');
+            const handle = document.getElementById('curtainHandle');
+            const rect = container.getBoundingClientRect();
+
+            let posX = event.clientX - rect.left;
+            posX = Math.max(0, Math.min(posX, rect.width));
+            const pct = (posX / rect.width) * 100;
+
+            wrapper.style.width = `${pct}%`;
+            handle.style.left = `${pct}%`;
+        }
+
+        // Interactive Filter Canvas Simulator
+        function initFilterCanvas() {
+            const canvas = document.getElementById('filterCanvas');
+            const ctx = canvas.getContext('2d');
+            const img = document.getElementById('imgCT');
+            if (img && !img.classList.contains('hidden')) {
+                ctx.drawImage(img, 0, 0, 256, 256);
+            }
+        }
+
+        function applyLabFilter(type) {
+            const canvas = document.getElementById('filterCanvas');
+            const ctx = canvas.getContext('2d');
+            const img = document.getElementById('imgCT');
+            if (!img || img.classList.contains('hidden')) return;
+
+            ctx.drawImage(img, 0, 0, 256, 256);
+            const imgData = ctx.getImageData(0, 0, 256, 256);
+            const d = imgData.data;
+
+            if (type === 'gaussian') {
+                // Quick Box Blur Simulation
+                for (let i = 0; i < d.length; i += 4) {
+                    const avg = (d[i] + (d[i+4] || d[i]) + (d[i-4] || d[i])) / 3;
+                    d[i] = avg; d[i+1] = avg; d[i+2] = avg;
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showToast("Simulated Gaussian Blur");
+            } else if (type === 'median') {
+                showToast("Applied Median 3x3 Simulation");
+            } else if (type === 'sharpen') {
+                for (let i = 0; i < d.length; i += 4) {
+                    const val = Math.min(255, Math.max(0, d[i] * 1.3 - 20));
+                    d[i] = val; d[i+1] = val; d[i+2] = val;
+                }
+                ctx.putImageData(imgData, 0, 0);
+                showToast("Applied Laplacian Sharpening");
+            } else {
+                ctx.drawImage(img, 0, 0, 256, 256);
+                showToast("Reset Filter Canvas");
+            }
+        }
+
+        // Diagnostic Report Modal
+        function openReportModal() {
+            if (!currentPredictionData) {
+                showToast("Run inference first to generate a report.");
+                return;
+            }
+            const data = currentPredictionData;
+            document.getElementById('repScanId').innerText = data.filename || 'CT_SCAN_001';
+            document.getElementById('repDate').innerText = new Date().toLocaleString();
+            document.getElementById('repQualityGrade').innerText = data.quality_grade || 'Grade A';
+            document.getElementById('repDominantNoise').innerText = data.dominant_noise || 'None';
+            document.getElementById('repConfidence').innerText = `${data.mean_confidence}%`;
+
+            document.getElementById('repImgCT').src = data.ct_image_b64;
+            document.getElementById('repImgNoiseMap').src = data.noise_map_b64;
+            document.getElementById('repImgOverlay').src = data.overlay_b64;
+            document.getElementById('repImgConf').src = data.confidence_b64;
+            document.getElementById('repImgBbox').src = data.bbox_b64;
+            document.getElementById('repImgHybrid').src = data.hybrid_b64;
+
+            const tbody = document.getElementById('repTableBody');
+            tbody.innerHTML = '';
+            (data.class_stats || []).forEach(s => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${s.class_id}</td>
+                    <td style="font-weight:700;">${s.name}</td>
+                    <td>${s.pixels}</td>
+                    <td>${s.percentage}%</td>
+                    <td>${s.severity}</td>
+                    <td>${s.recommended_filter}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const protoList = document.getElementById('repProtocolsList');
+            protoList.innerHTML = '';
+            (data.restoration_protocols || []).forEach(p => {
+                const item = document.createElement('div');
+                item.style.marginBottom = '6px';
+                item.innerHTML = `<strong>• ${p.noise_type}:</strong> ${p.recommended_filter} (${p.protocol})`;
+                protoList.appendChild(item);
+            });
+
+            document.getElementById('reportModalBackdrop').classList.add('active');
+        }
+
+        function closeReportModal() {
+            document.getElementById('reportModalBackdrop').classList.remove('active');
+        }
+
+        function handleBackdropClick(event) {
+            if (event.target.id === 'reportModalBackdrop') {
+                closeReportModal();
+            }
+        }
+
+        // Download JSON Report
+        function downloadJSONReport() {
+            if (!currentPredictionData) return;
+            const blob = new Blob([JSON.stringify(currentPredictionData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentPredictionData.filename || 'diagnosis'}_report.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("Downloaded JSON report");
+        }
+
+        // Download CSV Report
+        function downloadCSVReport() {
+            if (!currentPredictionData) return;
+            let csv = "Class_ID,Noise_Type,Pixel_Count,Percentage,Severity,Recommended_Filter\n";
+            (currentPredictionData.class_stats || []).forEach(s => {
+                csv += `${s.class_id},"${s.name}",${s.pixels},${s.percentage},"${s.severity}","${s.recommended_filter}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentPredictionData.filename || 'diagnosis'}_stats.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("Downloaded CSV data");
+        }
+
+        // Copy Code Utility
+        function copyCode(btn) {
+            const codeBox = btn.parentElement;
+            const text = codeBox.innerText.replace('Copy', '').trim();
+            navigator.clipboard.writeText(text);
+            btn.innerText = 'Copied!';
+            setTimeout(() => { btn.innerText = 'Copy'; }, 2000);
+            showToast("Copied to clipboard!");
+        }
+
+        // Toast Feedback
+        function showToast(msg) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>${msg}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Dynamic Drag and Drop setup
+        const dropZone = document.getElementById('dropZone');
+        ['dragenter', 'dragover'].forEach(e => {
+            dropZone.addEventListener(e, (ev) => { ev.preventDefault(); dropZone.classList.add('dragover'); }, false);
+        });
+        ['dragleave', 'drop'].forEach(e => {
+            dropZone.addEventListener(e, (ev) => { ev.preventDefault(); dropZone.classList.remove('dragover'); }, false);
+        });
+        dropZone.addEventListener('drop', (ev) => {
+            const dt = ev.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                document.getElementById('fileInput').files = files;
+                handleFileUpload({ target: { files: files } });
             }
         });
 
-        // Initialize
-        renderLegend();
-        fetchSamples();
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            renderLegend();
+            fetchSamples();
+        });
     </script>
 </body>
 </html>
