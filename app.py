@@ -118,16 +118,25 @@ def add_cors_headers(response):
 def init_model():
     global model, model_error
     try:
+        # Check if .pth needs reassembly from chunk parts
+        part1 = os.path.join(BASE_DIR, "models", "best_unetplusplus.part1")
+        part2 = os.path.join(BASE_DIR, "models", "best_unetplusplus.part2")
+        
+        needs_reassembly = (not os.path.exists(MODEL_PATH)) or (os.path.getsize(MODEL_PATH) < 1000)
+        
+        if needs_reassembly and os.path.exists(part1) and os.path.exists(part2):
+            print("[INIT] Reassembling UNet++ model weights from chunk parts...")
+            with open(MODEL_PATH, 'wb') as out_f:
+                with open(part1, 'rb') as f1:
+                    out_f.write(f1.read())
+                with open(part2, 'rb') as f2:
+                    out_f.write(f2.read())
+            print(f"[INIT] Model weights reassembled successfully ({os.path.getsize(MODEL_PATH)/(1024*1024):.1f} MB)!")
+
         if not os.path.exists(MODEL_PATH):
             raise FileNotFoundError(f"Checkpoint not found at: {MODEL_PATH}")
         
         file_size = os.path.getsize(MODEL_PATH)
-        if file_size < 1000:
-            raise ValueError(
-                f"Model file is a Git LFS pointer ({file_size} bytes). "
-                "Please run 'git lfs pull' in your build command."
-            )
-            
         print(f"[INIT] Loading UNet++ checkpoint ({file_size / (1024*1024):.1f} MB)...")
         model = load_model(MODEL_PATH, DEVICE)
         model.eval()

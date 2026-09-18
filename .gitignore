@@ -24,6 +24,7 @@ dataset/train/
 dataset/val/
 dataset/test/
 04_split_dataset/
+models/*.pth
 
 # Operating System Files
 Thumbs.db
