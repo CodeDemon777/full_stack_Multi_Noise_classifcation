@@ -1704,9 +1704,9 @@
             </nav>
 
             <div class="header-actions">
-                <div class="badge-status">
-                    <div class="status-dot"></div>
-                    <span id="modelStatusBadge">UNet++ Ready (105 MB)</span>
+                <div class="badge-status" id="serverStatusBadge" onclick="openServerConfigModal()" style="cursor: pointer;" title="Click to view or change PyTorch Backend REST API URL">
+                    <div class="status-dot" id="serverStatusDot"></div>
+                    <span id="modelStatusBadge">Checking Backend...</span>
                 </div>
                 <button class="btn-header-cta" onclick="openReportModal()">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -2853,6 +2853,42 @@ docker run -p 5000:5000 lungct-unetplusplus
         </div>
     </div>
 
+    <!-- Backend Server Settings Modal -->
+    <div class="modal-backdrop" id="serverConfigModalBackdrop" onclick="handleServerModalBackdrop(event)">
+        <div class="report-modal" style="max-width: 580px;">
+            <div class="modal-topbar">
+                <div class="modal-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                    <span>PyTorch REST API Backend Settings</span>
+                </div>
+                <button class="modal-close-btn" onclick="closeServerConfigModal()">&times;</button>
+            </div>
+            <div style="padding: 20px 24px; font-size: 13px; color: var(--text-muted);">
+                <p style="margin-bottom: 14px; color: #f8fafc; line-height: 1.6;">
+                    Connect this frontend to your PyTorch backend hosted on Render, Railway, or Localhost.
+                </p>
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-weight: 700; color: #38bdf8; margin-bottom: 6px;">Backend API Base URL:</label>
+                    <input type="text" id="backendUrlInput" placeholder="https://full-stack-multi-noise-classifcation.onrender.com" 
+                           style="width: 100%; padding: 10px 14px; border-radius: 8px; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; box-sizing: border-box;">
+                </div>
+                <div id="pingStatusBox" style="padding: 12px; border-radius: 8px; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; margin-bottom: 16px; color: #cbd5e1; line-height: 1.5;">
+                    Status: Initializing connection check...
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn-action highlight-btn" onclick="testAndPingBackend()">⚡ Ping / Wake Server</button>
+                <button class="btn-action" onclick="saveBackendUrl()">💾 Save & Reconnect</button>
+                <button class="btn-action" onclick="resetBackendUrl()">🔄 Reset Default</button>
+                <button class="btn-action" onclick="closeServerConfigModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div class="toast-container" id="toastContainer"></div>
 
@@ -2889,17 +2925,154 @@ docker run -p 5000:5000 lungct-unetplusplus
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        const DEFAULT_PROD_RENDER_URL = "https://full-stack-multi-noise-classifcation.onrender.com";
+
+        function getApiBaseUrl() {
+            const custom = localStorage.getItem('LUNGCT_BACKEND_URL') || localStorage.getItem('LUNGCT_API_BASE_URL');
+            if (custom && custom.trim() !== '') return custom.trim().replace(/\/+$/, '');
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                return window.location.port === '5000' ? '' : 'http://localhost:5000';
+            }
+            return DEFAULT_PROD_RENDER_URL;
+        }
+
+        function getApiUrl(path) {
+            const base = getApiBaseUrl();
+            const cleanPath = path.startsWith('/') ? path : '/' + path;
+            return base ? `${base}${cleanPath}` : cleanPath;
+        }
+
+        function updateServerStatus(status, detail = '') {
+            const dot = document.getElementById('serverStatusDot');
+            const badge = document.getElementById('modelStatusBadge');
+            const box = document.getElementById('pingStatusBox');
+            const input = document.getElementById('backendUrlInput');
+            if (input) input.value = getApiBaseUrl();
+
+            if (status === 'online') {
+                if (dot) { dot.style.background = '#10b981'; dot.style.boxShadow = '0 0 10px #10b981'; }
+                if (badge) badge.innerText = 'Backend Online 🟢';
+                if (box) box.innerHTML = `<span style="color:#34d399; font-weight:700;">🟢 Online & Connected</span><br>Target: <code>${getApiBaseUrl()}</code><br>${detail || 'Ready for real-time PyTorch UNet++ inference.'}`;
+            } else if (status === 'waking') {
+                if (dot) { dot.style.background = '#f59e0b'; dot.style.boxShadow = '0 0 10px #f59e0b'; }
+                if (badge) badge.innerText = 'Waking Backend 🟡';
+                if (box) box.innerHTML = `<span style="color:#fbbf24; font-weight:700;">🟡 Waking Up Server</span><br>Target: <code>${getApiBaseUrl()}</code><br>${detail || 'Render free instance spin-up in progress (~30-50s)...'}`;
+            } else {
+                if (dot) { dot.style.background = '#f43f5e'; dot.style.boxShadow = '0 0 10px #f43f5e'; }
+                if (badge) badge.innerText = 'Backend Offline 🔴';
+                if (box) box.innerHTML = `<span style="color:#f87171; font-weight:700;">🔴 Server Unreachable</span><br>Target: <code>${getApiBaseUrl()}</code><br>${detail || 'Click Test / Wake Server or update Backend URL.'}`;
+            }
+        }
+
+        async function safeApiFetch(endpoint, options = {}) {
+            const fullUrl = getApiUrl(endpoint);
+            let res;
+            try {
+                res = await fetch(fullUrl, options);
+            } catch (networkErr) {
+                updateServerStatus('offline', `Network error connecting to ${fullUrl}`);
+                throw new Error(`Cannot reach backend at ${fullUrl}. If using Render free tier, server may be starting up. Please click top status badge to test connection.`);
+            }
+
+            const contentType = res.headers.get('content-type') || '';
+            if (!res.ok) {
+                let errorMsg = `HTTP ${res.status} ${res.statusText || ''}`.trim();
+                if (contentType.includes('application/json')) {
+                    try {
+                        const errData = await res.json();
+                        if (errData.error) errorMsg = errData.error;
+                    } catch (e) {}
+                } else {
+                    if (res.status === 502 || res.status === 503 || res.status === 504) {
+                        updateServerStatus('waking', `Received HTTP ${res.status}. Server is waking up.`);
+                        errorMsg = `Render backend is spinning up from sleep (HTTP ${res.status}). Free tier servers pause when inactive and take ~30-50 seconds to boot. Please wait 30 seconds and retry.`;
+                    }
+                }
+                throw new Error(errorMsg);
+            }
+
+            if (!contentType.includes('application/json')) {
+                throw new Error(`Invalid response format from server (received HTML instead of JSON). Please verify your Backend URL in Settings.`);
+            }
+
+            updateServerStatus('online');
+            return await res.json();
+        }
+
+        async function checkBackendHealth() {
+            try {
+                const data = await safeApiFetch('/api/v1/health');
+                updateServerStatus('online', `Latency: ${data.status} | PyTorch: ${data.torch_version} (${data.device})`);
+            } catch (err) {
+                console.warn("Backend health check:", err.message);
+            }
+        }
+
+        function openServerConfigModal() {
+            const input = document.getElementById('backendUrlInput');
+            if (input) input.value = getApiBaseUrl();
+            document.getElementById('serverConfigModalBackdrop').classList.add('active');
+            testAndPingBackend();
+        }
+
+        function closeServerConfigModal() {
+            document.getElementById('serverConfigModalBackdrop').classList.remove('active');
+        }
+
+        function handleServerModalBackdrop(event) {
+            if (event.target.id === 'serverConfigModalBackdrop') closeServerConfigModal();
+        }
+
+        async function testAndPingBackend() {
+            const box = document.getElementById('pingStatusBox');
+            box.innerHTML = `<span style="color:#38bdf8;">⏳ Pinging backend at ${getApiBaseUrl()}...</span>`;
+            updateServerStatus('waking', 'Pinging /api/v1/health...');
+            const startTime = performance.now();
+            try {
+                const data = await safeApiFetch('/api/v1/health');
+                const lat = (performance.now() - startTime).toFixed(1);
+                updateServerStatus('online', `Response in ${lat} ms. Device: ${data.device} | PyTorch: ${data.torch_version}`);
+                showToast(`Backend online (${lat} ms)`);
+            } catch (err) {
+                updateServerStatus('offline', err.message);
+                showToast("Backend ping failed. Check details in modal.");
+            }
+        }
+
+        function saveBackendUrl() {
+            const val = document.getElementById('backendUrlInput').value.trim();
+            if (val) {
+                localStorage.setItem('LUNGCT_BACKEND_URL', val.replace(/\/+$/, ''));
+                localStorage.setItem('LUNGCT_API_BASE_URL', val.replace(/\/+$/, ''));
+                showToast("Saved custom Backend URL!");
+            } else {
+                localStorage.removeItem('LUNGCT_BACKEND_URL');
+                localStorage.removeItem('LUNGCT_API_BASE_URL');
+                showToast("Reset to default URL");
+            }
+            testAndPingBackend();
+            fetchSamples();
+        }
+
+        function resetBackendUrl() {
+            localStorage.removeItem('LUNGCT_BACKEND_URL');
+            localStorage.removeItem('LUNGCT_API_BASE_URL');
+            document.getElementById('backendUrlInput').value = DEFAULT_PROD_RENDER_URL;
+            showToast("Reset to default Render backend URL");
+            testAndPingBackend();
+            fetchSamples();
+        }
+
         // Live REST API Sandbox Runner
         async function executeAPICall(endpoint, method, resultBoxId) {
             const resultBox = document.getElementById(resultBoxId);
-            resultBox.innerText = `[${method}] Sending request to ${endpoint}...`;
+            resultBox.innerText = `[${method}] Sending request to ${getApiUrl(endpoint)}...`;
             const startTime = performance.now();
 
             try {
-                const res = await fetch(endpoint, { method: method });
-                const json = await res.json();
+                const json = await safeApiFetch(endpoint, { method: method });
                 const latency = (performance.now() - startTime).toFixed(1);
-                resultBox.innerText = `HTTP ${res.status} OK (${latency} ms)\n\n` + JSON.stringify(json, null, 2);
+                resultBox.innerText = `HTTP 200 OK (${latency} ms)\n\n` + JSON.stringify(json, null, 2);
                 showToast(`API: ${endpoint} responded in ${latency} ms`);
             } catch (err) {
                 resultBox.innerText = `Error: ${err.message}`;
@@ -2950,8 +3123,7 @@ docker run -p 5000:5000 lungct-unetplusplus
         // Fetch Preloaded Benchmark Samples
         async function fetchSamples() {
             try {
-                const res = await fetch('/api/v1/samples');
-                const data = await res.json();
+                const data = await safeApiFetch('/api/v1/samples');
                 const gallery = document.getElementById('sampleGallery');
                 gallery.innerHTML = '';
 
@@ -2974,8 +3146,13 @@ docker run -p 5000:5000 lungct-unetplusplus
                     executePrediction();
                 }
             } catch (err) {
-                console.error("Failed to load samples:", err);
-                showToast("Could not load samples. Server is initializing.");
+                console.warn("Failed to load samples:", err.message);
+                const gallery = document.getElementById('sampleGallery');
+                if (gallery) {
+                    gallery.innerHTML = `<div style="grid-column: span 2; padding: 12px; font-size: 11px; color: #f87171; background: rgba(239, 68, 68, 0.1); border-radius: 8px;">
+                        ⚠️ Backend connecting... (${err.message}).<br><button onclick="openServerConfigModal()" style="margin-top:6px; font-size:10.5px; padding:4px 8px; border-radius:4px; background:#0284c7; color:#fff; border:none; cursor:pointer;">Configure Backend URL</button>
+                    </div>`;
+                }
             }
         }
 
@@ -3058,11 +3235,10 @@ docker run -p 5000:5000 lungct-unetplusplus
             }
 
             try {
-                const res = await fetch('/api/v1/predict', {
+                const data = await safeApiFetch('/api/v1/predict', {
                     method: 'POST',
                     body: formData
                 });
-                const data = await res.json();
                 if (data.error) {
                     alert("Error: " + data.error);
                     return;
@@ -3111,7 +3287,7 @@ docker run -p 5000:5000 lungct-unetplusplus
                 renderFilterLabProtocols(data.restoration_protocols);
 
                 // Download Links & Display
-                document.getElementById('btnDownloadMask').href = data.download_mask_url;
+                document.getElementById('btnDownloadMask').href = getApiUrl(data.download_mask_url);
                 document.getElementById('metricsSection').style.display = 'grid';
                 document.getElementById('actionsRow').style.display = 'flex';
                 document.getElementById('resultTitle').innerText = `Diagnosis: ${data.filename}`;
@@ -3120,7 +3296,7 @@ docker run -p 5000:5000 lungct-unetplusplus
 
             } catch (err) {
                 console.error("Prediction failed:", err);
-                showToast("Prediction failed. Check console log.");
+                showToast(err.message || "Prediction failed. Check backend connection.");
             } finally {
                 btn.disabled = false;
                 btnText.innerText = '⚡ Run UNet++ Neural Inference';
@@ -3455,6 +3631,7 @@ docker run -p 5000:5000 lungct-unetplusplus
         // Initialize App
         window.addEventListener('DOMContentLoaded', () => {
             renderLegend();
+            checkBackendHealth();
             fetchSamples();
         });
     </script>
